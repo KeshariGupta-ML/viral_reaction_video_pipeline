@@ -4,44 +4,172 @@
   <meta charset="UTF-8">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800;900&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+
   <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
     body {
       background: transparent;
       margin: 0;
-      padding: 20px;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      width: 850px;
+      padding: 24px;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      width: 980px;
+      overflow: hidden;
     }
-    .comment-card {
-      background: rgba(18, 24, 38, 0.94);
-      backdrop-filter: blur(16px);
-      border: 2px solid rgba(255, 255, 255, 0.15);
-      border-radius: 24px;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
-      color: #fff;
+
+    /* Clean White Card with Drop Shadow & Red Accent Border */
+    .clean-white-card {
+      position: relative;
+      background: #ffffff;
+      border-radius: 28px;
+      padding: 32px 36px;
+      border: 3px solid #ff0033;
+      box-shadow:
+        0 25px 50px -12px rgba(0, 0, 0, 0.75),
+        0 0 30px rgba(255, 0, 51, 0.35);
     }
+
+    .avatar-wrapper {
+      position: relative;
+      width: 64px;
+      height: 64px;
+      flex-shrink: 0;
+    }
+
     .avatar {
-      width: 60px;
-      height: 60px;
+      width: 100%;
+      height: 100%;
       border-radius: 50%;
       object-fit: cover;
-      border: 2px solid #38bdf8;
+      border: 3px solid #ff0033;
+    }
+
+    /* Bold Red Username */
+    .author-name {
+      font-family: 'Outfit', sans-serif;
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: -0.01em;
+      color: #e11d48;
+      text-transform: capitalize;
+    }
+
+    .author-handle {
+      font-size: 14px;
+      font-weight: 700;
+      color: #64748b;
+    }
+
+    .badge-top-comment {
+      background: #ff0033;
+      color: #ffffff;
+      font-family: 'Outfit', sans-serif;
+      font-size: 13px;
+      font-weight: 800;
+      padding: 6px 14px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    /* High-Contrast Jet Black Comment Text */
+    .comment-quote {
+      font-family: 'Outfit', sans-serif;
+      font-size: 34px;
+      font-weight: 800;
+      line-height: 1.35;
+      color: #0f172a;
+      margin: 18px 0 22px 0;
+      word-break: break-word;
+    }
+
+    .quote-mark {
+      color: #ff0033;
+      font-size: 38px;
+      line-height: 0;
+      margin-right: 6px;
+      vertical-align: -4px;
+    }
+
+    .metrics-container {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      border-top: 2px solid #f1f5f9;
+      padding-top: 16px;
+    }
+
+    .metric-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #f8fafc;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 999px;
+      padding: 7px 18px;
+      font-size: 16px;
+      font-weight: 800;
+      color: #334155;
+    }
+
+    .metric-pill.like-pill {
+      background: #fff1f2;
+      border-color: #fecdd3;
+      color: #be123c;
+    }
+
+    .metric-pill.like-pill i {
+      color: #e11d48;
+    }
+
+    .metric-pill.reply-pill i {
+      color: #64748b;
     }
   </style>
 </head>
 <body>
-  <div class="comment-card p-4">
-    <div class="d-flex align-items-center mb-3">
-      <img src="{{ avatar_url or 'https://api.dicebear.com/7.x/identicon/svg?seed=' + author }}" class="avatar me-3" alt="Avatar">
-      <div>
-        <h5 class="mb-0 fw-bold text-info">{{ author }}</h5>
-        <small class="text-white-50">Top Comment • 🔥 Most Liked</small>
+  <div class="clean-white-card">
+    <div class="d-flex align-items-center justify-content-between mb-2">
+      <div class="d-flex align-items-center gap-3">
+        <div class="avatar-wrapper">
+          <img src="{{ avatar_url or 'https://api.dicebear.com/7.x/bottts/svg?seed=' + author }}" class="avatar" alt="Avatar">
+        </div>
+        <div>
+          <div class="d-flex align-items-center gap-2">
+            <span class="author-name">{{ author }}</span>
+            <i class="bi bi-patch-check-fill text-danger fs-5"></i>
+          </div>
+          <div class="author-handle">@{{ author | lower | replace(' ', '_') }}</div>
+        </div>
       </div>
+
+      <span class="badge-top-comment">
+        🔥 Top Comment
+      </span>
     </div>
-    <p class="fs-4 fw-semibold lh-sm text-light mb-3">"{{ comment_text }}"</p>
-    <div class="d-flex align-items-center gap-4 text-white-50 fs-6">
-      <span><i class="bi bi-heart-fill text-danger me-1"></i> {{ likes }}</span>
-      <span><i class="bi bi-chat-dots-fill me-1"></i> {{ replies }} replies</span>
+
+    <!-- Main Black Comment Text -->
+    <div class="comment-quote">
+      <span class="quote-mark">“</span>{{ comment_text }}<span class="quote-mark">”</span>
+    </div>
+
+    <!-- Metrics Footer -->
+    <div class="metrics-container">
+      <div class="metric-pill like-pill">
+        <i class="bi bi-heart-fill"></i>
+        <span>{{ likes or '1.4K' }} Likes</span>
+      </div>
+      <div class="metric-pill reply-pill">
+        <i class="bi bi-chat-left-dots-fill"></i>
+        <span>{{ replies or '32' }} Replies</span>
+      </div>
     </div>
   </div>
 </body>

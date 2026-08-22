@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     OUTPUT_DIR: Path = BASE_DIR / "storage" / "output"
     STATIC_DIR: Path = BASE_DIR / "app" / "static"
     TEMPLATES_DIR: Path = BASE_DIR / "app" / "templates"
+    VIDEOS_DIR: Path = STORAGE_DIR / "videos"
     MEMES_DIR: Path = BASE_DIR / "assets" / "memes"
 
 settings = Settings()

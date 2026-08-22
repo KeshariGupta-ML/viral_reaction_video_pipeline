@@ -19,7 +19,7 @@ class PipelineOrchestrator:
         self.jobs: Dict[str, VideoJob] = {}
 
     def _cleanup_temp_dir(self):
-        """Removes all files in the temp folder to prevent disk bloating on new video runs."""
+        """Removes intermediate segment clips from temp folder while preserving the video cache."""
         try:
             temp_path = settings.TEMP_DIR
             if temp_path.exists():
@@ -29,11 +29,8 @@ class PipelineOrchestrator:
                     elif item.is_dir():
                         shutil.rmtree(item, ignore_errors=True)
                 logger.info(f"🧹 [Pipeline Cleanup] Cleared temporary files from {temp_path}")
-            else:
-                temp_path.mkdir(parents=True, exist_ok=True)
         except Exception as e:
-            logger.warning(f"⚠️ [Pipeline Cleanup] Could not completely clean temp folder: {str(e)}")
-
+            logger.warning(f"⚠️ [Pipeline Cleanup] Could not clean temp folder: {str(e)}")
     def create_job(self, job_id: str, video_url: str) -> VideoJob:
         """Immediately registers job in memory so polling endpoints do not return 404."""
         job = VideoJob(job_id=job_id, status=JobStatus.QUEUED, source_url=video_url)

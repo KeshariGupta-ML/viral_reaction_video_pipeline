@@ -204,11 +204,12 @@ class VideoCompositorService:
         in_vid = ffmpeg.input(str(source_video), ss=0)
         in_aud = ffmpeg.input(str(audio_path))
 
+        # Cinematic Heavy Blurred Full-Frame Background (1080x1920)
         bg = (
             in_vid.video
             .filter('scale', 1080, 1920, force_original_aspect_ratio='increase')
             .filter('crop', 1080, 1920)
-            .filter('boxblur', 30, 5)
+            .filter('boxblur', 45, 6)
             .filter('loop', loop=-1, size=1)
             .filter('trim', duration=duration)
             .filter('fps', fps=30)
