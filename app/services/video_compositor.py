@@ -1,8 +1,14 @@
 import os
 import uuid
 from pathlib import Path
+<<<<<<< HEAD
+from typing import List, Optional, Tuple
+import ffmpeg
+
+=======
 from typing import List, Optional
 import ffmpeg
+>>>>>>> origin/main
 from app.core.logger import logger
 from app.services.card_renderer import card_renderer_service
 from config import settings
@@ -20,12 +26,25 @@ class VideoCompositorService:
         except Exception:
             return 5.0
 
+<<<<<<< HEAD
+    def _render_hook_intro_segment(
+=======
     def _render_freeze_frame_segment(
+>>>>>>> origin/main
             self,
             source_video: Path,
             duration: float,
             audio_path: Path,
             output_segment: Path,
+<<<<<<< HEAD
+            hook_timeline: List[Tuple[Path, float, float]]
+    ):
+        """Creates Hook Intro Scene with paused/blurred full video and 3-word bold kinetic pop-ups."""
+        in_vid = ffmpeg.input(str(source_video), ss=0)
+        in_aud = ffmpeg.input(str(audio_path))
+
+        # Blurred Background (1080x1920)
+=======
             overlay_image: Optional[Path] = None
     ):
         """Creates a segment where the video is paused/blurred (1080x1920) with audio and optional overlay."""
@@ -33,6 +52,7 @@ class VideoCompositorService:
         in_aud = ffmpeg.input(str(audio_path))
 
         # 1. Full-screen heavy blurred background (1080x1920)
+>>>>>>> origin/main
         bg = (
             in_vid.video
             .filter('scale', 1080, 1920, force_original_aspect_ratio='increase')
@@ -44,7 +64,11 @@ class VideoCompositorService:
             .filter('setpts', 'PTS-STARTPTS')
         )
 
+<<<<<<< HEAD
+        # Centered Foreground Video
+=======
         # 2. Centered foreground video
+>>>>>>> origin/main
         fg = (
             in_vid.video
             .filter('scale', 1080, 1920, force_original_aspect_ratio='decrease')
@@ -56,19 +80,96 @@ class VideoCompositorService:
 
         comp = ffmpeg.overlay(bg, fg, x='(W-w)/2', y='(H-h)/2')
 
+<<<<<<< HEAD
+        # Sequentially overlay 3-word bold text pop-ups
+        for img_path, start_t, end_t in hook_timeline:
+            if img_path.exists():
+                txt_in = ffmpeg.input(str(img_path))
+                scaled_txt = txt_in.video.filter('scale', 960, -1)
+                comp = ffmpeg.overlay(
+                    comp,
+                    scaled_txt,
+                    x='(W-w)/2',
+                    y='(H-h)/2 + 250',
+                    enable=f'between(t,{start_t:.2f},{end_t:.2f})'
+                )
+
+        aud = (
+            in_aud.audio
+            .filter('aformat', sample_rates='44100', channel_layouts='stereo')
+            .filter('atrim', duration=duration)
+            .filter('asetpts', 'PTS-STARTPTS')
+        )
+
+        out = ffmpeg.output(
+            comp,
+            aud,
+            str(output_segment),
+            vcodec='libx264',
+            acodec='aac',
+            audio_bitrate='192k',
+            pix_fmt='yuv420p',
+            r=30,
+            t=duration
+        )
+        out.run(overwrite_output=True, capture_stdout=True, capture_stderr=True)
+
+    def _render_comment_reaction_segment(
+            self,
+            source_video: Path,
+            duration: float,
+            audio_path: Path,
+            comment_card_img: Path,
+            output_segment: Path
+    ):
+        """Creates Comment Reaction Scene with blurred background and centered comment card."""
+        in_vid = ffmpeg.input(str(source_video), ss=0)
+        in_aud = ffmpeg.input(str(audio_path))
+
+        bg = (
+            in_vid.video
+            .filter('scale', 1080, 1920, force_original_aspect_ratio='increase')
+            .filter('crop', 1080, 1920)
+            .filter('boxblur', 30, 5)
+            .filter('loop', loop=-1, size=1)
+            .filter('trim', duration=duration)
+            .filter('fps', fps=30)
+            .filter('setpts', 'PTS-STARTPTS')
+        )
+
+        fg = (
+            in_vid.video
+            .filter('scale', 1080, 1920, force_original_aspect_ratio='decrease')
+            .filter('loop', loop=-1, size=1)
+            .filter('trim', duration=duration)
+            .filter('fps', fps=30)
+            .filter('setpts', 'PTS-STARTPTS')
+        )
+
+        comp = ffmpeg.overlay(bg, fg, x='(W-w)/2', y='(H-h)/2')
+
+        if comment_card_img and comment_card_img.exists():
+            img_in = ffmpeg.input(str(comment_card_img), loop=1, t=duration)
+=======
         # 3. Apply PNG Overlay (Intro Banner or Comment Card)
         if overlay_image and overlay_image.exists():
             img_in = ffmpeg.input(str(overlay_image), loop=1, t=duration)
+>>>>>>> origin/main
             scaled_img = (
                 img_in.video
                 .filter('scale', 960, -1)
                 .filter('fps', fps=30)
                 .filter('setpts', 'PTS-STARTPTS')
             )
+<<<<<<< HEAD
+            comp = ffmpeg.overlay(comp, scaled_img, x='(W-w)/2', y='(H-h)/2 + 250')
+
+=======
             # Center horizontally, placed in lower half (y=1150)
             comp = ffmpeg.overlay(comp, scaled_img, x='(W-w)/2', y='(H-h)/2 + 250')
 
         # Audio stream normalized to 44.1kHz Stereo AAC
+>>>>>>> origin/main
         aud = (
             in_aud.audio
             .filter('aformat', sample_rates='44100', channel_layouts='stereo')
@@ -141,37 +242,67 @@ class VideoCompositorService:
             source_video_path: Path,
             comment_card_images: List[Path],
             tts_audio_paths: List[Path],
+<<<<<<< HEAD
+            hook_narration_text: str = "Pehle ye video dekho, feer iske comments padhte hain! Aur subscribe like thok ke jaiyega!",
+=======
+>>>>>>> origin/main
             output_filename: Optional[str] = None
     ) -> Path:
         out_name = output_filename or f"reaction_{str(uuid.uuid4())[:8]}.mp4"
         output_path = self.output_dir / out_name
         segments: List[Path] = []
 
+<<<<<<< HEAD
+        logger.info("🎬 [Video Compositor] Assembling reaction video with kinetic hook typography...")
+
+        try:
+            # ----------------------------------------------------
+            # Scene 1: Hook Intro (3-word bold kinetic pop-ups + hook audio)
+=======
         logger.info("🎬 [Video Compositor] Assembling full-frame reaction video...")
 
         try:
             # ----------------------------------------------------
             # Scene 1: Hook Intro (Paused + Blurred + Hook TTS + Pillow Intro Banner)
+>>>>>>> origin/main
             # ----------------------------------------------------
             if tts_audio_paths:
                 hook_audio = tts_audio_paths[0]
                 hook_duration = self.get_media_duration(hook_audio)
                 seg1_path = self.temp_dir / f"seg_1_hook_{uuid.uuid4().hex[:6]}.mp4"
 
+<<<<<<< HEAD
+                # Generate 3-word timed bold overlays
+                hook_timeline = card_renderer_service.render_bold_hook_text_overlays(
+                    hook_text=hook_narration_text,
+                    total_duration=hook_duration
+                )
+
+                self._render_hook_intro_segment(
+=======
                 # Generate banner card
                 intro_banner = card_renderer_service.render_intro_card_to_image()
 
                 self._render_freeze_frame_segment(
+>>>>>>> origin/main
                     source_video=source_video_path,
                     duration=hook_duration,
                     audio_path=hook_audio,
                     output_segment=seg1_path,
+<<<<<<< HEAD
+                    hook_timeline=hook_timeline
+=======
                     overlay_image=intro_banner
+>>>>>>> origin/main
                 )
                 segments.append(seg1_path)
 
             # ----------------------------------------------------
+<<<<<<< HEAD
+            # Scene 2: Video Playback (Up to 10s at 1.0x normal speed)
+=======
             # Scene 2: Full Source Video Playback (Up to 10s at 1.0x normal speed)
+>>>>>>> origin/main
             # ----------------------------------------------------
             seg2_path = self.temp_dir / f"seg_2_play_{uuid.uuid4().hex[:6]}.mp4"
             self._render_video_playback_segment(
@@ -182,7 +313,11 @@ class VideoCompositorService:
             segments.append(seg2_path)
 
             # ----------------------------------------------------
+<<<<<<< HEAD
+            # Scene 3+: Comment Reactions (Blurred backdrop + Comment Card + Voiceover)
+=======
             # Scene 3+: Comment Reactions (Paused + Blurred + Centered Card + TTS)
+>>>>>>> origin/main
             # ----------------------------------------------------
             for idx, card_img in enumerate(comment_card_images):
                 audio_idx = idx + 1
@@ -191,17 +326,30 @@ class VideoCompositorService:
                     c_duration = self.get_media_duration(c_audio)
                     seg_c_path = self.temp_dir / f"seg_comment_{idx}_{uuid.uuid4().hex[:6]}.mp4"
 
+<<<<<<< HEAD
+                    self._render_comment_reaction_segment(
+                        source_video=source_video_path,
+                        duration=c_duration,
+                        audio_path=c_audio,
+                        comment_card_img=card_img,
+                        output_segment=seg_c_path
+=======
                     self._render_freeze_frame_segment(
                         source_video=source_video_path,
                         duration=c_duration,
                         audio_path=c_audio,
                         output_segment=seg_c_path,
                         overlay_image=card_img
+>>>>>>> origin/main
                     )
                     segments.append(seg_c_path)
 
             # ----------------------------------------------------
+<<<<<<< HEAD
+            # Concatenate Segments
+=======
             # Concatenate All Segments into Final MP4
+>>>>>>> origin/main
             # ----------------------------------------------------
             concat_txt = self.temp_dir / f"concat_{uuid.uuid4().hex[:6]}.txt"
             with open(concat_txt, "w", encoding="utf-8") as f:
@@ -214,7 +362,11 @@ class VideoCompositorService:
                 c='copy'
             ).run(overwrite_output=True, capture_stdout=True, capture_stderr=True)
 
+<<<<<<< HEAD
+            # Cleanup temporary intermediate segment files
+=======
             # Cleanup segments
+>>>>>>> origin/main
             for seg in segments:
                 if seg.exists():
                     seg.unlink()

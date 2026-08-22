@@ -40,7 +40,11 @@ class PipelineOrchestrator:
         self.jobs[job_id] = job
         return job
 
+<<<<<<< HEAD
+    async def run_pipeline(self, job_id: str, video_url: str, comment_count: int = 2) -> VideoJob:
+=======
     async def run_pipeline(self, job_id: str, video_url: str, comment_count: int = 3) -> VideoJob:
+>>>>>>> origin/main
         # 0. Clean temporary directory at start of new generation
         self._cleanup_temp_dir()
 
@@ -92,7 +96,11 @@ class PipelineOrchestrator:
                 )
                 card_images.append(card_img)
 
+<<<<<<< HEAD
+            # Step 4: Video Composition (Segment assembly & kinetic typography concatenation)
+=======
             # Step 4: Video Composition (Segment assembly & concatenation)
+>>>>>>> origin/main
             job.status = JobStatus.RENDERING
             logger.info(f"🎬 [Pipeline {job_id}] Step 4/5: Compositing final vertical 9:16 video...")
 
@@ -101,6 +109,10 @@ class PipelineOrchestrator:
                 source_video_path=video_path,
                 comment_card_images=card_images,
                 tts_audio_paths=audio_paths,
+<<<<<<< HEAD
+                hook_narration_text=script.hook_narration,
+=======
+>>>>>>> origin/main
                 output_filename=output_filename
             )
             job.rendered_video_path = rendered_path
