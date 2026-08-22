@@ -14,11 +14,11 @@ class Settings(BaseSettings):
 
     # LLM Settings (Google Gemini via LangChain)
     # Pydantic will now automatically find it since load_dotenv() injected it into os.environ
-    GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")
+    GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY")
     GEMINI_MODEL: str = "gemini-2.5-flash"
 
     # Server Settings
-    APP_HOST: str = "0.0.0.0"
+    APP_HOST: str = "127.0.0.1"
     APP_PORT: int = 8000
     DEBUG: bool = True
 
@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     OUTPUT_DIR: Path = BASE_DIR / "storage" / "output"
     STATIC_DIR: Path = BASE_DIR / "app" / "static"
     TEMPLATES_DIR: Path = BASE_DIR / "app" / "templates"
+    MEMES_DIR: Path = BASE_DIR / "assets" / "memes"
 
 settings = Settings()
 

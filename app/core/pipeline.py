@@ -92,7 +92,7 @@ class PipelineOrchestrator:
                 )
                 card_images.append(card_img)
 
-            # Step 4: Video Composition (Segment assembly & kinetic typography concatenation)
+            # Step 4: Video Composition (Segment assembly & dynamic meme cutaways)
             job.status = JobStatus.RENDERING
             logger.info(f"🎬 [Pipeline {job_id}] Step 4/5: Compositing final vertical 9:16 video...")
 
@@ -101,7 +101,7 @@ class PipelineOrchestrator:
                 source_video_path=video_path,
                 comment_card_images=card_images,
                 tts_audio_paths=audio_paths,
-                hook_narration_text=script.hook_narration,
+                script=script,
                 output_filename=output_filename
             )
             job.rendered_video_path = rendered_path

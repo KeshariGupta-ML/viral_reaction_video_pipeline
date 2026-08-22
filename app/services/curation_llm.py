@@ -1,75 +1,64 @@
+import os
+from pathlib import Path
 import json
-from typing import List
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import JsonOutputParser
+from langchain_core.output_parsers import PydanticOutputParser
 
-from app.schemas.comment import RawComment
 from app.schemas.script import VideoScript
 from app.core.logger import logger
 from config import settings
 
 
-class CommentCurationService:
+class CurationLLMService:
     def __init__(self):
         self.llm = ChatGoogleGenerativeAI(
             model=settings.GEMINI_MODEL,
             google_api_key=settings.GOOGLE_API_KEY,
-            temperature=0.7,
+            temperature=0.3  # Lower temperature for strict prompt adherence
         )
+        self.parser = PydanticOutputParser(pydantic_object=VideoScript)
 
-    def curate_and_generate_script(
-        self,
-        raw_comments: List[RawComment],
-        comment_count: int = 3
-    ) -> VideoScript:
-        logger.info(f"🤖 [LLM Curation] Processing {len(raw_comments)} comments using {settings.GEMINI_MODEL}...")
+    def _get_available_memes(self) -> list:
+        if settings.MEMES_DIR.exists():
+            return [
+                f.name for f in settings.MEMES_DIR.glob("*.*")
+                if f.suffix.lower() in [".mp4", ".mov", ".webm", ".mkv"]
+                and "chaliye" not in f.stem.lower()
+            ]
+        return []
 
-        comments_data = [
-            {
-                "id": c.id,
-                "author": c.author,
-                "text": c.text,
-                "likes": c.likes,
-                "replies": c.replies
-            }
-            for c in raw_comments
-        ]
+    def curate_and_generate_script(self, raw_comments: list, comment_count: int = 3) -> VideoScript:
+        logger.info(f"🤖 [LLM Curation] Curating top {comment_count} comments...")
 
-        parser = JsonOutputParser(pydantic_object=VideoScript)
+        available_memes = self._get_available_memes()
+        comments_payload = [c.dict() for c in raw_comments[:25]]
 
         prompt = ChatPromptTemplate.from_messages([
             (
                 "system",
-                "You are a viral YouTube Shorts/Reels scriptwriter. "
-                "1. Pick the top {comment_count} funniest comments.\n"
-                "2. Set 'hook_narration' EXACTLY to: 'Pehle ye video dekho, fir iske comments padhte hain! Aur meri mehnat ke liye subscribe aur like thok ke jaiyega!'\n"
-                "3. For each selected comment, write a funny and roasted Hinglish narration that reads the comment (e.g. 'Ye bhai bol rahe hain... bhai kya bol diya! 💀').\n\n"
+                "You are an AI video editor formatting YouTube Shorts reaction videos.\n"
+                "RULES:\n"
+                "1. Filter out offensive or toxic comments.\n"
+                "2. Pick the top {comment_count} funniest comments.\n"
+                "3. Set 'hook_narration' EXACTLY to: 'Pehle ye video dekho, fir iske comments padhte hain! Aur subscribe like thok ke jaiyega!'\n"
+                "4. For each selected comment, 'roast_narration' MUST BE ONLY the comment text translated/spoken clearly in natural Hindi/Hinglish. DO NOT say the username, DO NOT add intro phrases like 'Ye bhai bol rahe hain', and DO NOT add self-reactions. ONLY read the comment text cleanly.\n"
+                "5. Assign 'meme_clip' for each reaction by picking the best matching filename from this exact list: {available_memes}. If list is empty, set to null.\n\n"
                 "{format_instructions}"
             ),
             (
                 "user",
-                "Here are the scraped comments:\n{comments_json}"
+                "Here are the comments:\n{comments_json}"
             )
         ])
 
-        chain = prompt | self.llm | parser
-
-        try:
-            result = chain.invoke({
-                "comment_count": comment_count,
-                "comments_json": json.dumps(comments_data, indent=2),
-                "format_instructions": parser.get_format_instructions()
-            })
-
-            script = VideoScript(**result)
-            # Guarantee the exact hook
-            script.hook_narration = "Pehle ye video dekho, feer iske comments padhte hain! Aur meri mehnat ke liye subscribe aur like thok ke jaiyega!"
-            return script
-
-        except Exception as e:
-            logger.error(f"❌ [LLM Curation] Error: {str(e)}")
-            raise e
+        chain = prompt | self.llm | self.parser
+        return chain.invoke({
+            "comment_count": comment_count,
+            "available_memes": json.dumps(available_memes),
+            "comments_json": json.dumps(comments_payload),
+            "format_instructions": self.parser.get_format_instructions()
+        })
 
 
-curation_service = CommentCurationService()
+curation_service = CurationLLMService()
