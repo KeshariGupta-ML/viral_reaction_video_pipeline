@@ -1,0 +1,27 @@
+# Virtual Environment
+venv/
+.venv/
+env/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Environment Variables
+.env
+
+# Storage Directories
+storage/temp/*
+storage/output/*
+storage/videos/*
+!storage/temp/.gitkeep
+!storage/output/.gitkeep
+!storage/videos/.gitkeep
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
