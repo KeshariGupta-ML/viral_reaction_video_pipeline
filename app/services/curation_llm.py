@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import json
+import re
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
@@ -15,7 +16,7 @@ class CurationLLMService:
         self.llm = ChatGoogleGenerativeAI(
             model=settings.GEMINI_MODEL,
             google_api_key=settings.GOOGLE_API_KEY,
-            temperature=0.3  # Lower temperature for strict prompt adherence
+            temperature=0.1  # Low temperature for strict adherence without hallucinated translations
         )
         self.parser = PydanticOutputParser(pydantic_object=VideoScript)
 
@@ -37,18 +38,22 @@ class CurationLLMService:
         prompt = ChatPromptTemplate.from_messages([
             (
                 "system",
-                "You are an AI video editor formatting YouTube Shorts reaction videos.\n"
+                "You are an AI video editor selecting comments for reaction shorts.\n"
                 "RULES:\n"
-                "1. Filter out offensive or toxic comments.\n"
-                "2. Pick the top {comment_count} funniest comments.\n"
-                "3. Set 'hook_narration' EXACTLY to: 'Pehle ye video dekho, fir iske comments padhte hain! Aur subscribe like thok ke jaiyega!'\n"
-                "4. For each selected comment, 'roast_narration' MUST BE ONLY the comment text translated/spoken clearly in natural Hindi/Hinglish. DO NOT say the username, DO NOT add intro phrases like 'Ye bhai bol rahe hain', and DO NOT add self-reactions. ONLY read the comment text cleanly.\n"
-                "5. Assign 'meme_clip' for each reaction by picking the best matching filename from this exact list: {available_memes}. If list is empty, set to null.\n\n"
+                "1. Pick the top {comment_count} most flirtatious, humorous, or witty comments (priority: Hinglish/English/Hindi).\n"
+                "2. Set 'hook_narration' EXACTLY to: 'Pehle video dekho, fir iske comments padhte hain! Aur meri mehnat ke liye subscribe aur like thok ke jana!'\n"
+                "3. For each selected comment, 'roast_narration' MUST BE THE EXACT, RAW COMMENT TEXT but lenght of comments not exceed 10 words.\n"
+                "   - DO NOT translate the comment.\n"
+                "   - DO NOT convert English words to Hindi.\n"
+                "   - DO NOT rephrase, modify.\n"
+                "   - DO NOT add usernames or conversational phrases like 'Ye bhai bol rahe hain'.\n"
+                "   - Simply copy the exact comment text as 'roast_narration', stripping out emojis and repeated laugh words (like 'hahaha', 'lmao', 'rofl', '😂😂').\n"
+                "4. Assign 'meme_clip' for each reaction by picking the best matching filename from this exact list: {available_memes}. If list is empty, set to null.\n\n"
                 "{format_instructions}"
             ),
             (
                 "user",
-                "Here are the comments:\n{comments_json}"
+                "Here are the scraped comments:\n{comments_json}"
             )
         ])
 

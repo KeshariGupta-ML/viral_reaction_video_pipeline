@@ -65,54 +65,55 @@ class CardRendererService:
         return overlay_timeline
 
     def render_comment_card_to_image(
-        self,
-        author: str,
-        comment_text: str,
-        likes: str = "1.2K",
-        replies: str = "45",
-        avatar_url: str = None
+            self,
+            author: str,
+            comment_text: str,
+            likes: str = "1.2K",
+            replies: str = "45",
+            avatar_url: str = None
     ) -> Path:
-        """Natively renders a dark-mode comment card PNG using Pillow."""
+        """Renders clean white card with bold red author and black comment text."""
         card_id = str(uuid.uuid4())[:8]
         output_path = self.output_dir / f"card_{card_id}.png"
 
-        logger.info(f"🎨 [Card Renderer] Natively drawing comment card for author: '{author}'")
-
-        width, height = 1000, 360
+        width, height = 1000, 390
         image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
         draw = ImageDraw.Draw(image)
 
+        # 1. Clean White Card Backdrop with Red Border
         card_box = (15, 15, width - 15, height - 15)
-        draw.rounded_rectangle(card_box, radius=40, fill=(15, 23, 42, 235), outline=(255, 255, 255, 60), width=3)
+        draw.rounded_rectangle(card_box, radius=36, fill=(255, 255, 255, 255), outline=(255, 0, 51, 255), width=5)
 
         try:
-            font_title = ImageFont.truetype("arialbd.ttf", 34)
-            font_subtitle = ImageFont.truetype("arial.ttf", 22)
-            font_body = ImageFont.truetype("arialbd.ttf", 32)
-            font_meta = ImageFont.truetype("arial.ttf", 24)
+            font_title = ImageFont.truetype("arialbd.ttf", 36)
+            font_subtitle = ImageFont.truetype("arialbd.ttf", 22)
+            font_body = ImageFont.truetype("arialbd.ttf", 34)
+            font_meta = ImageFont.truetype("arialbd.ttf", 24)
         except IOError:
             font_title = font_subtitle = font_body = font_meta = ImageFont.load_default()
 
-        # Avatar circle
-        avatar_box = (50, 45, 120, 115)
-        draw.ellipse(avatar_box, fill=(56, 189, 248, 255))
+        # 2. Red Avatar Ring
+        avatar_box = (45, 40, 115, 110)
+        draw.ellipse(avatar_box, fill=(255, 241, 242, 255), outline=(255, 0, 51, 255), width=4)
 
-        # Author and badges
-        draw.text((140, 45), author, fill=(56, 189, 248, 255), font=font_title)
-        draw.text((140, 88), "Top Comment • 🔥 Most Liked", fill=(148, 163, 184, 255), font=font_subtitle)
+        # 3. Red Bold Author Name
+        draw.text((135, 42), author, fill=(225, 29, 72, 255), font=font_title)
+        draw.text((135, 88), "🔥 Top Comment", fill=(100, 116, 139, 255), font=font_subtitle)
 
-        # Body Text
+        # 4. Jet Black Bold Comment Text
         formatted_comment = f'"{comment_text}"'
-        if len(formatted_comment) > 65:
-            formatted_comment = formatted_comment[:62] + "..."
-        draw.text((50, 150), formatted_comment, fill=(255, 255, 255, 255), font=font_body)
+        if len(formatted_comment) > 60:
+            formatted_comment = formatted_comment[:57] + '..."'
+        draw.text((45, 155), formatted_comment, fill=(15, 23, 42, 255), font=font_body)
 
-        # Meta (Likes & Replies)
-        footer_text = f"❤️  {likes}      💬  {replies} replies"
-        draw.text((50, 280), footer_text, fill=(148, 163, 184, 255), font=font_meta)
+        # 5. Divider Line
+        draw.line([(45, 295), (width - 45, 295)], fill=(226, 232, 240, 255), width=3)
+
+        # 6. Metrics
+        footer_text = f"❤️ {likes} Likes      💬 {replies} Replies"
+        draw.text((45, 318), footer_text, fill=(225, 29, 72, 255), font=font_meta)
 
         image.save(str(output_path), "PNG")
-        logger.info(f"✅ [Card Renderer] Comment card image saved to: {output_path}")
         return output_path
 
 

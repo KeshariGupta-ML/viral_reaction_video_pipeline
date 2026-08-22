@@ -5,7 +5,7 @@ from app.schemas.comment import CuratedComment
 
 class VideoScript(BaseModel):
     hook_narration: str = Field(
-        default="Pehle ye video dekho, fir iske comments padhte hain! Aur meri mehnat ke liye subscribe aur like thok ke jaiyega!",
+        default="Pehle video dekho, fir iske comments padhte hain! Aur meri mehnat ke liye subscribe aur like thok ke jana",
         description="High-energy Hindi hook narration"
     )
     reactions: List[CuratedComment] = Field(
