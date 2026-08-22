@@ -64,7 +64,11 @@ class CommentCurationService:
 
             script = VideoScript(**result)
             # Guarantee the exact hook
+<<<<<<< HEAD
             script.hook_narration = "Pehle ye video dekho, feer iske comments padhte hain! Aur meri mehnat ke liye subscribe aur like thok ke jaiyega!"
+=======
+            script.hook_narration = "Pehle ye video dekho, fir iske comments padhte hain! Aur meri mehnat ke liye subscribe aur like thok ke jaiyega!"
+>>>>>>> origin/main
             return script
 
         except Exception as e:
