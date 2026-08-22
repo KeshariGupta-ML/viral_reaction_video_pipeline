@@ -1,6 +1,7 @@
 import os
 import uuid
 from pathlib import Path
+from typing import List, Tuple
 from PIL import Image, ImageDraw, ImageFont
 
 from app.core.logger import logger
@@ -11,32 +12,57 @@ class CardRendererService:
     def __init__(self, output_dir: Path = settings.TEMP_DIR):
         self.output_dir = output_dir
 
-    def render_intro_card_to_image(self, text: str = "Pehle ye video dekho, fir iske comments padhte hain! 👇") -> Path:
-        """Renders an attractive intro hook banner PNG natively using Pillow."""
-        card_id = str(uuid.uuid4())[:8]
-        output_path = self.output_dir / f"intro_banner_{card_id}.png"
+    def render_bold_hook_text_overlays(
+        self,
+        hook_text: str = "Pehle ye video dekho, feer iske comments padhte hain! Aur like subscribe thok ke jaiyega!",
+        total_duration: float = 5.0
+    ) -> List[Tuple[Path, float, float]]:
+        """
+        Splits hook text into 2-3 word chunks and renders bold, high-contrast kinetic typography images.
+        Returns a list of (image_path, start_time, end_time).
+        """
+        words = hook_text.replace("!", "").replace(",", "").split()
+        # Group into 3 words per frame
+        chunk_size = 3
+        chunks = [" ".join(words[i:i + chunk_size]) for i in range(0, len(words), chunk_size)]
 
-        width, height = 980, 240
-        image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(image)
-
-        # Draw semi-transparent glass backdrop
-        card_box = (10, 10, width - 10, height - 10)
-        draw.rounded_rectangle(card_box, radius=32, fill=(15, 23, 42, 230), outline=(56, 189, 248, 200), width=4)
+        time_per_chunk = total_duration / max(len(chunks), 1)
+        overlay_timeline = []
 
         try:
-            font_title = ImageFont.truetype("arial.ttf", 36)
-            font_sub = ImageFont.truetype("arial.ttf", 26)
+            # High-impact bold font
+            font = ImageFont.truetype("arialbd.ttf", 64)
         except IOError:
-            font_title = font_sub = ImageFont.load_default()
+            try:
+                font = ImageFont.truetype("arial.ttf", 64)
+            except IOError:
+                font = ImageFont.load_default()
 
-        # Draw intro text
-        draw.text((40, 45), "👀 Pehle ye video dekho,", fill=(255, 255, 255, 255), font=font_title)
-        draw.text((40, 100), "fir iske comments padhte hain!", fill=(56, 189, 248, 255), font=font_title)
-        draw.text((40, 165), "🔥 Like & Subscribe thok ke jaiyega!", fill=(226, 232, 240, 220), font=font_sub)
+        for idx, chunk in enumerate(chunks):
+            start_t = idx * time_per_chunk
+            end_t = (idx + 1) * time_per_chunk
+            img_id = str(uuid.uuid4())[:6]
+            output_path = self.output_dir / f"hook_bold_{img_id}.png"
 
-        image.save(str(output_path), "PNG")
-        return output_path
+            # Create canvas
+            width, height = 1000, 260
+            image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(image)
+
+            # Draw glowing dark-yellow backdrop badge
+            badge_box = (20, 20, width - 20, height - 20)
+            draw.rounded_rectangle(badge_box, radius=36, fill=(0, 0, 0, 200), outline=(250, 204, 21, 240), width=5)
+
+            # Draw heavy black drop-shadow for 3D punch
+            text_upper = chunk.upper()
+            draw.text((width // 2 - 2, height // 2 + 2), text_upper, fill=(0, 0, 0, 255), font=font, anchor="mm")
+            # Draw bright bold yellow text
+            draw.text((width // 2, height // 2), text_upper, fill=(250, 204, 21, 255), font=font, anchor="mm")
+
+            image.save(str(output_path), "PNG")
+            overlay_timeline.append((output_path, start_t, end_t))
+
+        return overlay_timeline
 
     def render_comment_card_to_image(
         self,
@@ -46,7 +72,7 @@ class CardRendererService:
         replies: str = "45",
         avatar_url: str = None
     ) -> Path:
-        """Natively renders a high-definition dark-mode comment card PNG using Pillow."""
+        """Natively renders a dark-mode comment card PNG using Pillow."""
         card_id = str(uuid.uuid4())[:8]
         output_path = self.output_dir / f"card_{card_id}.png"
 
@@ -60,14 +86,14 @@ class CardRendererService:
         draw.rounded_rectangle(card_box, radius=40, fill=(15, 23, 42, 235), outline=(255, 255, 255, 60), width=3)
 
         try:
-            font_title = ImageFont.truetype("arial.ttf", 34)
+            font_title = ImageFont.truetype("arialbd.ttf", 34)
             font_subtitle = ImageFont.truetype("arial.ttf", 22)
-            font_body = ImageFont.truetype("arial.ttf", 32)
+            font_body = ImageFont.truetype("arialbd.ttf", 32)
             font_meta = ImageFont.truetype("arial.ttf", 24)
         except IOError:
             font_title = font_subtitle = font_body = font_meta = ImageFont.load_default()
 
-        # Avatar placeholder
+        # Avatar circle
         avatar_box = (50, 45, 120, 115)
         draw.ellipse(avatar_box, fill=(56, 189, 248, 255))
 
