@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     # Pydantic will now automatically find it since load_dotenv() injected it into os.environ
     GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY")
     GEMINI_MODEL: str = "gemini-2.5-flash"
+    ELEVENLABS_API_KEY: str
+    ELEVENLABS_VOICE_ID: str
 
     # Server Settings
     APP_HOST: str = "127.0.0.1"
@@ -30,6 +32,7 @@ class Settings(BaseSettings):
     TEMPLATES_DIR: Path = BASE_DIR / "app" / "templates"
     VIDEOS_DIR: Path = STORAGE_DIR / "videos"
     MEMES_DIR: Path = BASE_DIR / "assets" / "memes"
+    ASSETS_DIR: Path = BASE_DIR / "assets"
 
 settings = Settings()
 
