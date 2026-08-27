@@ -42,7 +42,7 @@ class CurationLLMService:
                 "RULES:\n"
                 "1. Pick the top {comment_count} most flirtatious, humorous, or witty comments (priority: Hinglish/English/Hindi).\n"
                 "2. Set 'hook_narration' EXACTLY to: 'Pehle video dekho, fir iske comments padhte hain! Aur meri mehnat ke liye subscribe aur like thok ke jana!'\n"
-                "3. For each selected comment, 'roast_narration' MUST BE THE EXACT, RAW COMMENT TEXT but lenght of comments not exceed 10 words.\n"
+                "3. For each selected comment, 'roast_narration' MUST BE THE EXACT, RAW COMMENT TEXT but lenght of comments between 4 to 15 words.\n"
                 "   - DO NOT translate the comment.\n"
                 "   - DO NOT convert English words to Hindi.\n"
                 "   - DO NOT rephrase, modify.\n"

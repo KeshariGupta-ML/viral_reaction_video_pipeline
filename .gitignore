@@ -8,7 +8,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
-
+assets/token.json
+assets/credentials.json
+assets/shiva-service-acc.json
 # Environment Variables
 .env
 

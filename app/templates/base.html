@@ -17,12 +17,34 @@
 </head>
 <body class="bg-black text-light py-5">
   <div class="container" style="max-width: 900px;">
+
+    <!-- Header -->
     <div class="text-center mb-5">
       <h1 class="fw-bold text-info"><i class="bi bi-camera-reels-fill me-2"></i>Viral Reaction Studio</h1>
       <p class="text-secondary">End-to-End Automated 9:16 Shorts & Reels Generator with Gemini 2.5 Flash & FFmpeg</p>
     </div>
 
+    <!-- Standalone Drive Upload / n8n Trigger Card -->
+    <div class="row g-4 mb-4">
+      <div class="col-12">
+        <div class="glass-card p-4 d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+          <div>
+            <h5 class="mb-1 text-light"><i class="bi bi-cloud-arrow-up-fill text-warning me-2"></i>Publish Staged Video</h5>
+            <small class="text-white-50">Uploads whatever is currently staged in your Google Drive Temp folder to Social Media via n8n.</small>
+          </div>
+          <div class="d-flex flex-column align-items-md-end">
+            <button id="standaloneUploadBtn" onclick="triggerWorkflowUpload()" class="btn btn-warning fw-bold px-4 py-2 text-nowrap">
+              <i class="bi bi-send-fill me-2"></i>Trigger Upload Workflow
+            </button>
+            <div id="standaloneStatus" class="small mt-1 text-md-end"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Workspace -->
     <div class="row g-4">
+      <!-- Left Column: Source Ingestion -->
       <div class="col-lg-6">
         <div class="glass-card p-4 h-100">
           <h4 class="mb-3"><i class="bi bi-link-45deg me-2"></i>Source Ingestion</h4>
@@ -52,9 +74,10 @@
         </div>
       </div>
 
+      <!-- Right Column: Pipeline Output -->
       <div class="col-lg-6">
         <div class="glass-card p-4 h-100 d-flex flex-column align-items-center justify-content-center text-center">
-          <div id="statusArea">
+          <div id="statusArea" class="w-100">
             <i class="bi bi-film fs-1 text-white-50 mb-3"></i>
             <h5 class="text-secondary">Pipeline Output</h5>
             <p class="small text-white-50">Submit a video link to begin downloading, curating comments, and rendering your 9:16 video.</p>
@@ -64,7 +87,11 @@
     </div>
   </div>
 
+  <!-- Bootstrap 5 JS Bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
   <script>
+    // 1. Submit Generation Form
     document.getElementById('renderForm').addEventListener('submit', async function(e) {
       e.preventDefault();
       const formData = new FormData(this);
@@ -99,6 +126,7 @@
       }
     });
 
+    // 2. Poll Job Status
     async function pollJobStatus(jobId) {
       const statusArea = document.getElementById('statusArea');
       const submitBtn = document.getElementById('submitBtn');
@@ -115,13 +143,24 @@
 
             statusArea.innerHTML = `
               <h5 class="text-success mb-3"><i class="bi bi-check-circle-fill me-2"></i>Render Complete!</h5>
-              <video width="100%" controls style="max-height: 350px; border-radius: 12px;" class="mb-3">
+              <video width="100%" controls style="max-height: 280px; border-radius: 12px;" class="mb-3">
                 <source src="${job.rendered_video_url}" type="video/mp4">
                 Your browser does not support the video tag.
               </video>
-              <a href="${job.rendered_video_url}" download class="btn btn-success w-100 fw-bold">
-                <i class="bi bi-download me-2"></i>Download 9:16 Video
-              </a>
+
+              <div class="row g-2 w-100">
+                <div class="col-6">
+                  <a href="${job.rendered_video_url}" download class="btn btn-success w-100 fw-bold py-2 h-100 d-flex align-items-center justify-content-center text-center">
+                    <i class="bi bi-download me-2"></i>Download Video
+                  </a>
+                </div>
+                <div class="col-6">
+                  <button id="uploadDriveBtn" onclick="uploadToDrive('${jobId}')" class="btn btn-primary w-100 fw-bold py-2 h-100 d-flex align-items-center justify-content-center text-center">
+                    <i class="bi bi-google me-2"></i>Upload to Drive
+                  </button>
+                </div>
+              </div>
+              <div id="driveUploadStatus" class="small text-white-50 mt-2"></div>
             `;
           } else if (job.status === 'failed') {
             clearInterval(interval);
@@ -143,6 +182,72 @@
           console.error("Polling error:", e);
         }
       }, 3000);
+    }
+
+    // 3. Upload Output & JSON for Job to Drive
+    async function uploadToDrive(jobId) {
+      const btn = document.getElementById('uploadDriveBtn');
+      const statusDiv = document.getElementById('driveUploadStatus');
+
+      btn.disabled = true;
+      btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Uploading...`;
+      statusDiv.innerHTML = `<span class="text-info">Uploading MP4 & JSON to Google Drive...</span>`;
+
+      try {
+        const res = await fetch(`/api/job/${jobId}/upload-drive`, { method: 'POST' });
+        const result = await res.json();
+
+        if (res.ok) {
+          btn.classList.remove('btn-primary');
+          btn.classList.add('btn-outline-primary');
+          btn.innerHTML = `<i class="bi bi-check2-all me-1"></i>Uploaded`;
+          statusDiv.innerHTML = `
+            <div class="d-flex justify-content-center gap-3 mt-1">
+              ${result.video_drive_link ? `<a href="${result.video_drive_link}" target="_blank" class="text-success text-decoration-none"><i class="bi bi-box-arrow-up-right me-1"></i>View Video</a>` : ''}
+              ${result.json_drive_link ? `<a href="${result.json_drive_link}" target="_blank" class="text-info text-decoration-none"><i class="bi bi-box-arrow-up-right me-1"></i>View JSON</a>` : ''}
+            </div>
+          `;
+        } else {
+          btn.disabled = false;
+          btn.innerHTML = `<i class="bi bi-google me-2"></i>Upload to Drive`;
+          statusDiv.innerHTML = `<span class="text-danger">Upload failed: ${result.detail || "Unknown error"}</span>`;
+        }
+      } catch (err) {
+        console.error(err);
+        btn.disabled = false;
+        btn.innerHTML = `<i class="bi bi-google me-2"></i>Upload to Drive`;
+        statusDiv.innerHTML = `<span class="text-danger">Failed to connect to upload endpoint.</span>`;
+      }
+    }
+
+    // 4. Standalone Trigger for Google Drive Temp Folder Upload via n8n
+    async function triggerWorkflowUpload() {
+      const btn = document.getElementById('standaloneUploadBtn');
+      const statusDiv = document.getElementById('standaloneStatus');
+
+      btn.disabled = true;
+      btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Checking Drive...`;
+      statusDiv.innerHTML = `<span class="text-info">Checking Google Drive temp files...</span>`;
+
+      try {
+        const res = await fetch('/api/trigger-to-upload-video', { method: 'POST' });
+        const data = await res.json();
+
+        if (res.ok) {
+          btn.classList.remove('btn-warning');
+          btn.classList.add('btn-success');
+          btn.innerHTML = `<i class="bi bi-check-circle-fill me-2"></i>Workflow Triggered!`;
+          statusDiv.innerHTML = `<span class="text-success">${data.message}</span>`;
+        } else {
+          btn.disabled = false;
+          btn.innerHTML = `<i class="bi bi-send-fill me-2"></i>Trigger Upload Workflow`;
+          statusDiv.innerHTML = `<span class="text-danger">⚠️ ${data.message || data.detail}</span>`;
+        }
+      } catch (err) {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="bi bi-send-fill me-2"></i>Trigger Upload Workflow`;
+        statusDiv.innerHTML = `<span class="text-danger">Failed to connect to backend server.</span>`;
+      }
     }
   </script>
 </body>

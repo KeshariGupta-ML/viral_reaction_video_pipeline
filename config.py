@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     # LLM Settings (Google Gemini via LangChain)
     # Pydantic will now automatically find it since load_dotenv() injected it into os.environ
     GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY")
-    GEMINI_MODEL: str = "gemini-2.5-flash"
+    GEMINI_MODEL: str = "gemini-3.6-flash"
     ELEVENLABS_API_KEY: str
     ELEVENLABS_VOICE_ID: str
 
@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     VIDEOS_DIR: Path = STORAGE_DIR / "videos"
     MEMES_DIR: Path = BASE_DIR / "assets" / "memes"
     ASSETS_DIR: Path = BASE_DIR / "assets"
+
+    # Google Drive Config
+    GOOGLE_DRIVE_FOLDER_ID: str = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
+    GOOGLE_APPLICATION_CREDENTIALS: str = "shiva-service-acc.json"
+    GOOGLE_OAUTH_CREDENTIALS: str = "credentials.json"
 
 settings = Settings()
 
