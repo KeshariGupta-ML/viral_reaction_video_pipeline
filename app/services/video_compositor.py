@@ -1,7 +1,7 @@
 import os
 import uuid
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Any
 import ffmpeg
 
 from app.core.logger import logger
@@ -25,8 +25,10 @@ class VideoCompositorService:
                     logger.info(f"🎬 [Video Compositor] Found transition meme: {file_path.name}")
                     return file_path
         logger.warning(
-            f"⚠️ [Video Compositor] No transition meme found in {settings.MEMES_DIR}. Please place 'chaliye_shuru_karte_hai.mp4' in assets/memes/")
+            f"⚠️ [Video Compositor] No transition meme found in {settings.MEMES_DIR}. Please place 'chaliye_shuru_karte_hai.mp4' in assets/memes/"
+        )
         return None
+
     def get_media_duration(self, media_path: Path) -> float:
         try:
             probe = ffmpeg.probe(str(media_path))
@@ -40,9 +42,14 @@ class VideoCompositorService:
         duration: float,
         audio_path: Path,
         output_segment: Path,
-        hook_timeline: List[Tuple[Path, float, float]]
+        top_banner_img: Optional[Path],
+        spoken_timeline: List[Tuple[Path, float, float]]
     ):
-        """Creates Hook Intro Scene with paused/blurred full video and 3-word bold kinetic pop-ups."""
+        """
+        Renders Hook Intro Scene:
+        - Top persistent dynamic banner (hook_comment) stays at y=180 for the full duration.
+        - Spoken 3-word chunks (hook_text) cycle sequentially at y=(H-h)/2 + 250.
+        """
         in_vid = ffmpeg.input(str(source_video), ss=0)
         in_aud = ffmpeg.input(str(audio_path))
 
@@ -68,10 +75,23 @@ class VideoCompositorService:
 
         comp = ffmpeg.overlay(bg, fg, x='(W-w)/2', y='(H-h)/2')
 
-        for img_path, start_t, end_t in hook_timeline:
+        # 1. Overlay Top Persistent Themed Banner for the full hook duration
+        if top_banner_img and top_banner_img.exists():
+            top_in = ffmpeg.input(str(top_banner_img), loop=1, t=duration)
+            scaled_top = top_in.video.filter('scale', 980, -1).filter('fps', fps=30).filter('setpts', 'PTS-STARTPTS')
+            comp = ffmpeg.overlay(
+                comp,
+                scaled_top,
+                x='(W-w)/2',
+                y=180,  # Safe eye-level placement above subjects
+                enable=f'between(t,0,{duration:.2f})'
+            )
+
+        # 2. Overlay Sequenced 3-Word Narration Badges in the lower third
+        for img_path, start_t, end_t in spoken_timeline:
             if img_path.exists():
                 txt_in = ffmpeg.input(str(img_path))
-                scaled_txt = txt_in.video.filter('scale', 960, -1)
+                scaled_txt = txt_in.video.filter('scale', 960, -1).filter('fps', fps=30).filter('setpts', 'PTS-STARTPTS')
                 comp = ffmpeg.overlay(
                     comp,
                     scaled_txt,
@@ -101,7 +121,7 @@ class VideoCompositorService:
         out.run(overwrite_output=True, capture_stdout=True, capture_stderr=True)
 
     def _render_video_playback_segment(self, source_video: Path, max_duration: float, output_segment: Path):
-        """Plays the source video at 1.0x normal speed with normalized framerate and audio."""
+        """Plays source video at 1.0x normal speed with normalized framerate and audio[cite: 1]."""
         total_vid_duration = self.get_media_duration(source_video)
         vid_duration = min(total_vid_duration, max_duration)
 
@@ -148,7 +168,7 @@ class VideoCompositorService:
         out.run(overwrite_output=True, capture_stdout=True, capture_stderr=True)
 
     def _render_meme_clip_segment(self, meme_video_path: Path, output_segment: Path, max_duration: float = 3.5):
-        """Normalizes any horizontal or vertical meme clip into standard 1080x1920 30FPS format."""
+        """Normalizes meme clip into standard 1080x1920 30FPS format[cite: 1]."""
         dur = min(self.get_media_duration(meme_video_path), max_duration)
         in_vid = ffmpeg.input(str(meme_video_path), t=dur)
 
@@ -200,11 +220,10 @@ class VideoCompositorService:
         comment_card_img: Path,
         output_segment: Path
     ):
-        """Renders Comment Reaction segment with paused/blurred video & centered comment card."""
+        """Renders Comment Reaction segment with paused/blurred video & centered comment card[cite: 1]."""
         in_vid = ffmpeg.input(str(source_video), ss=0)
         in_aud = ffmpeg.input(str(audio_path))
 
-        # Cinematic Heavy Blurred Full-Frame Background (1080x1920)
         bg = (
             in_vid.video
             .filter('scale', 1080, 1920, force_original_aspect_ratio='increase')
@@ -263,27 +282,34 @@ class VideoCompositorService:
         comment_card_images: List[Path],
         tts_audio_paths: List[Path],
         script: VideoScript,
-        output_filename: Optional[str] = None
+        output_filename: Optional[str] = None,
+        banner_theme: Optional[str] = None
     ) -> Path:
-        """Assembles all scenes into the final vertical 9:16 reaction short."""
+        """Assembles all scenes into the final vertical 9:16 reaction short[cite: 1]."""
         out_name = output_filename or f"reaction_{str(uuid.uuid4())[:8]}.mp4"
         output_path = self.output_dir / out_name
         segments: List[Path] = []
 
-        logger.info("🎬 [Video Compositor] Assembling reaction video with dynamic memes & kinetic intro...")
+        logger.info("🎬 [Video Compositor] Assembling reaction video with persistent hook banner & kinetic intro...")
 
         try:
             # ----------------------------------------------------
-            # Scene 1: Hook Intro (3-word bold kinetic pop-ups + hook audio)
+            # Scene 1: Hook Intro (Persistent top banner + timed spoken chunks + static audio)
             # ----------------------------------------------------
             if tts_audio_paths:
-                hook_audio = tts_audio_paths[0]
+                hook_audio = Path(tts_audio_paths[0])
                 hook_duration = self.get_media_duration(hook_audio)
                 seg1_path = self.temp_dir / f"seg_1_hook_{uuid.uuid4().hex[:6]}.mp4"
 
-                hook_timeline = card_renderer_service.render_bold_hook_text_overlays(
-                    hook_text=script.hook_narration,
-                    total_duration=hook_duration
+                hook_comment_val = getattr(script, "hook_comment", None)
+                hook_narration_val = getattr(script, "hook_narration", "Pehle ye video dekho, fir iske comments padhte hain!")
+
+                top_banner_img, spoken_timeline = card_renderer_service.render_bold_hook_text_overlays(
+                    hook_text=hook_narration_val,
+                    hook_comment=hook_comment_val,
+                    total_duration=hook_duration,
+                    theme=banner_theme,
+                    job_seed=source_video_path.name
                 )
 
                 self._render_hook_intro_segment(
@@ -291,12 +317,13 @@ class VideoCompositorService:
                     duration=hook_duration,
                     audio_path=hook_audio,
                     output_segment=seg1_path,
-                    hook_timeline=hook_timeline
+                    top_banner_img=top_banner_img,
+                    spoken_timeline=spoken_timeline
                 )
                 segments.append(seg1_path)
 
                 # ----------------------------------------------------
-                # Scene 2: Video Playback (Normal speed)
+                # Scene 2: Video Playback (Up to 10s at normal speed)
                 # ----------------------------------------------------
                 seg2_path = self.temp_dir / f"seg_2_play_{uuid.uuid4().hex[:6]}.mp4"
                 self._render_video_playback_segment(
@@ -316,6 +343,7 @@ class VideoCompositorService:
                     segments.append(seg_trans_path)
                 else:
                     logger.warning("⚠️ [Video Compositor] Skipping transition scene because meme file is missing.")
+
             # ----------------------------------------------------
             # Scene 3+: Comment Reactions & Contextual AI Memes
             # ----------------------------------------------------
@@ -323,7 +351,7 @@ class VideoCompositorService:
                 audio_idx = idx + 1
                 if audio_idx < len(tts_audio_paths):
                     # Step A: Comment Card Roast
-                    c_audio = tts_audio_paths[audio_idx]
+                    c_audio = Path(tts_audio_paths[audio_idx])
                     c_duration = self.get_media_duration(c_audio)
                     seg_c_path = self.temp_dir / f"seg_comment_{idx}_{uuid.uuid4().hex[:6]}.mp4"
 
@@ -336,7 +364,7 @@ class VideoCompositorService:
                     )
                     segments.append(seg_c_path)
 
-                    # Step B: Matching Meme Cutaway (picked by Gemini)
+                    # Step B: Matching Meme Cutaway
                     if reaction.meme_clip:
                         meme_path = settings.MEMES_DIR / reaction.meme_clip
                         if meme_path.exists():
@@ -358,7 +386,7 @@ class VideoCompositorService:
                 c='copy'
             ).run(overwrite_output=True, capture_stdout=True, capture_stderr=True)
 
-            # Clean temporary segments
+            # Cleanup temporary intermediate segment files
             for seg in segments:
                 if seg.exists():
                     seg.unlink()
