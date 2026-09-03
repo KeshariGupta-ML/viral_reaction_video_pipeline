@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     # LLM Settings (Google Gemini via LangChain)
     # Pydantic will now automatically find it since load_dotenv() injected it into os.environ
     GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY")
-    GEMINI_MODEL: str = "gemini-3.6-flash"
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL")
     ELEVENLABS_API_KEY: str
     ELEVENLABS_VOICE_ID: str
 

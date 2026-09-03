@@ -19,11 +19,10 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from app.services.gdrive_uploader import gdrive_service
 from app.core.pipeline import pipeline_orchestrator
-from app.schemas.video import JobStatus
 from config import settings
 
 app = FastAPI(title="Automated Viral Comment Reaction Generator", version="1.0.0")
-N8N_WEBHOOK_URL = "http://localhost:5678/webhook-test/trigger-to-upload-video"
+N8N_WEBHOOK_URL = "http://localhost:5678/webhook/trigger-to-upload-video"
 
 # Mount static and output storage paths
 app.mount("/static", StaticFiles(directory=str(settings.STATIC_DIR)), name="static")

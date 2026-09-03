@@ -8,7 +8,7 @@ from app.core.logger import logger
 from app.schemas.video import JobStatus, VideoJob
 from app.services.scraper import scraper_service
 from app.services.curation_llm import curation_service
-from app.services.tts_engine import tts_service
+from app.services.tts_elevenlab_engine import tts_service
 from app.services.card_renderer import card_renderer_service
 from app.services.video_compositor import video_compositor_service
 from config import settings
