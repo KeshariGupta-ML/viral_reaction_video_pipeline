@@ -5,8 +5,8 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800;900&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800;900&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
 
   <style>
     * {
@@ -19,21 +19,21 @@
       background: transparent;
       margin: 0;
       padding: 24px;
-      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
       width: 980px;
       overflow: hidden;
     }
 
-    /* Twitter / X "Dim" Mode Card Container */
-    .twitter-card {
+    /* Clean White Card with Drop Shadow & Red Accent Border */
+    .clean-white-card {
       position: relative;
-      background: rgba(21, 32, 43, 0.96); /* Twitter Dim Background */
-      border-radius: 26px;
-      padding: 30px 36px;
-      border: 2px solid #2f3336; /* Subtle Twitter Border */
+      background: #ffffff;
+      border-radius: 28px;
+      padding: 32px 36px;
+      border: 3px solid #ff0033;
       box-shadow:
-        0 25px 50px -12px rgba(0, 0, 0, 0.85),
-        0 0 28px rgba(29, 155, 240, 0.25); /* Cyan/Blue Accent Glow */
+        0 25px 50px -12px rgba(0, 0, 0, 0.75),
+        0 0 30px rgba(255, 0, 51, 0.35);
     }
 
     .avatar-wrapper {
@@ -48,29 +48,28 @@
       height: 100%;
       border-radius: 50%;
       object-fit: cover;
-      border: 2.5px solid #1d9bf0;
-      background: #273340;
+      border: 3px solid #ff0033;
     }
 
-    /* Twitter Blue Verified Author */
+    /* Bold Red Username */
     .author-name {
       font-family: 'Outfit', sans-serif;
-      font-size: 26px;
-      font-weight: 800;
-      color: #f7f9f9;
+      font-size: 28px;
+      font-weight: 900;
       letter-spacing: -0.01em;
+      color: #e11d48;
+      text-transform: capitalize;
     }
 
     .author-handle {
-      font-size: 15px;
-      font-weight: 600;
-      color: #71767b; /* Cool Gray */
+      font-size: 14px;
+      font-weight: 700;
+      color: #64748b;
     }
 
     .badge-top-comment {
-      background: rgba(29, 155, 240, 0.15);
-      border: 1px solid rgba(29, 155, 240, 0.45);
-      color: #1d9bf0;
+      background: #ff0033;
+      color: #ffffff;
       font-family: 'Outfit', sans-serif;
       font-size: 13px;
       font-weight: 800;
@@ -80,20 +79,20 @@
       letter-spacing: 0.04em;
     }
 
-    /* Crisp High-Contrast White Comment Text */
+    /* High-Contrast Jet Black Comment Text */
     .comment-quote {
       font-family: 'Outfit', sans-serif;
-      font-size: 32px;
-      font-weight: 700;
-      line-height: 1.38;
-      color: #e7e9ea; /* Twitter Primary White */
+      font-size: 34px;
+      font-weight: 800;
+      line-height: 1.35;
+      color: #0f172a;
       margin: 18px 0 22px 0;
       word-break: break-word;
     }
 
     .quote-mark {
-      color: #1d9bf0;
-      font-size: 36px;
+      color: #ff0033;
+      font-size: 38px;
       line-height: 0;
       margin-right: 6px;
       vertical-align: -4px;
@@ -103,67 +102,60 @@
       display: flex;
       align-items: center;
       gap: 14px;
-      border-top: 1.5px solid #2f3336;
-      padding-top: 18px;
+      border-top: 2px solid #f1f5f9;
+      padding-top: 16px;
     }
 
     .metric-pill {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      background: rgba(239, 243, 244, 0.05);
-      border: 1px solid #38444d;
+      background: #f8fafc;
+      border: 1.5px solid #e2e8f0;
       border-radius: 999px;
       padding: 7px 18px;
       font-size: 16px;
-      font-weight: 700;
-      color: #8b98a5;
+      font-weight: 800;
+      color: #334155;
     }
 
     .metric-pill.like-pill {
-      background: rgba(249, 24, 128, 0.1);
-      border-color: rgba(249, 24, 128, 0.35);
-      color: #f91880; /* Twitter Pink/Heart Red */
+      background: #fff1f2;
+      border-color: #fecdd3;
+      color: #be123c;
     }
 
     .metric-pill.like-pill i {
-      color: #f91880;
-    }
-
-    .metric-pill.reply-pill {
-      background: rgba(29, 155, 240, 0.1);
-      border-color: rgba(29, 155, 240, 0.35);
-      color: #1d9bf0;
+      color: #e11d48;
     }
 
     .metric-pill.reply-pill i {
-      color: #1d9bf0;
+      color: #64748b;
     }
   </style>
 </head>
 <body>
-  <div class="twitter-card">
+  <div class="clean-white-card">
     <div class="d-flex align-items-center justify-content-between mb-2">
       <div class="d-flex align-items-center gap-3">
         <div class="avatar-wrapper">
-          <!-- Fallback avatar generates an initial/avatar via DiceBear SVG -->
-          <img src="{{ avatar_url or 'https://api.dicebear.com/7.x/initials/svg?seed=' + author + '&backgroundColor=1d9bf0&textColor=ffffff' }}" class="avatar" alt="Avatar">
+          <img src="{{ avatar_url or 'https://api.dicebear.com/7.x/bottts/svg?seed=' + author }}" class="avatar" alt="Avatar">
         </div>
         <div>
           <div class="d-flex align-items-center gap-2">
             <span class="author-name">{{ author }}</span>
-            <i class="bi bi-patch-check-fill text-primary fs-5" style="color: #1d9bf0 !important;"></i>
+            <i class="bi bi-patch-check-fill text-danger fs-5"></i>
           </div>
           <div class="author-handle">@{{ author | lower | replace(' ', '_') }}</div>
         </div>
       </div>
 
       <span class="badge-top-comment">
-        <i class="bi bi-twitter-x me-1"></i> Top Comment
+        🔥 Top Comment
       </span>
     </div>
 
-    <!-- Main Comment Text -->
+    <!-- Main Black Comment Text -->
     <div class="comment-quote">
       <span class="quote-mark">“</span>{{ comment_text }}<span class="quote-mark">”</span>
     </div>
@@ -172,11 +164,11 @@
     <div class="metrics-container">
       <div class="metric-pill like-pill">
         <i class="bi bi-heart-fill"></i>
-        <span>{{ likes or '1.4K' }}</span>
+        <span>{{ likes or '1.4K' }} Likes</span>
       </div>
       <div class="metric-pill reply-pill">
-        <i class="bi bi-chat-fill"></i>
-        <span>{{ replies or '32' }}</span>
+        <i class="bi bi-chat-left-dots-fill"></i>
+        <span>{{ replies or '32' }} Replies</span>
       </div>
     </div>
   </div>

@@ -8,7 +8,7 @@ from app.core.logger import logger
 from app.schemas.video import JobStatus, VideoJob
 from app.services.scraper import scraper_service
 from app.services.curation_llm import curation_service
-from app.services.tts_engine import tts_service
+from app.services.tts_elevenlab_engine import tts_service
 from app.services.card_renderer import card_renderer_service
 from app.services.video_compositor import video_compositor_service
 from config import settings
@@ -31,6 +31,7 @@ class PipelineOrchestrator:
                 logger.info(f"🧹 [Pipeline Cleanup] Cleared temporary files from {temp_path}")
         except Exception as e:
             logger.warning(f"⚠️ [Pipeline Cleanup] Could not clean temp folder: {str(e)}")
+
     def create_job(self, job_id: str, video_url: str) -> VideoJob:
         """Immediately registers job in memory so polling endpoints do not return 404."""
         job = VideoJob(job_id=job_id, status=JobStatus.QUEUED, source_url=video_url)
@@ -70,16 +71,23 @@ class PipelineOrchestrator:
             card_images = []
             audio_paths = []
 
-            # Generate hook audio
-            hook_audio = await tts_service.generate_speech(script.hook_narration)
+            # 3a. Retrieve static hook audio (0 API credit usage)
+            hook_audio_path = settings.TEMP_DIR / f"{job_id}_hook.mp3"
+            hook_audio = await tts_service.get_hook_audio(
+                output_path=hook_audio_path,
+                hook_text=script.hook_narration
+            )
             audio_paths.append(hook_audio)
 
-            for reaction in script.reactions:
-                # Generate audio for each comment roast
-                r_audio = await tts_service.generate_speech(reaction.roast_narration)
+            # 3b. Generate audio and cards for curated comments
+            for idx, reaction in enumerate(script.reactions):
+                comment_audio_path = settings.TEMP_DIR / f"{job_id}_reaction_{idx}.mp3"
+                r_audio = await tts_service.synthesize(
+                    text=reaction.roast_narration,
+                    output_path=comment_audio_path
+                )
                 audio_paths.append(r_audio)
 
-                # Render comment card PNG
                 card_img = card_renderer_service.render_comment_card_to_image(
                     author=reaction.author,
                     comment_text=reaction.comment_text,

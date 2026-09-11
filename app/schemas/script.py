@@ -8,6 +8,10 @@ class VideoScript(BaseModel):
         default="Pehle video dekho, fir iske comments padhte hain! Aur meri mehnat ke liye subscribe aur like thok ke jana",
         description="High-energy Hindi hook narration"
     )
+    hook_comment: str = Field(
+        default="WAIT FOR THE END 💀",
+        description="Punchy 2-6 word short comment/hook to animate on dynamic banners"
+    )
     reactions: List[CuratedComment] = Field(
         ...,
         description="List of selected curated comments with roast narrations"
