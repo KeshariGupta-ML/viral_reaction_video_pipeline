@@ -24,7 +24,23 @@
       <p class="text-secondary">End-to-End Automated 9:16 Shorts & Reels Generator with Gemini 2.5 Flash & FFmpeg</p>
     </div>
 
-
+    <!-- Standalone Drive Upload / n8n Trigger Card -->
+    <div class="row g-4 mb-4">
+      <div class="col-12">
+        <div class="glass-card p-4 d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+          <div>
+            <h5 class="mb-1 text-light"><i class="bi bi-cloud-arrow-up-fill text-warning me-2"></i>Publish Staged Video</h5>
+            <small class="text-white-50">Uploads whatever is currently staged in your Google Drive Temp folder to Social Media via n8n.</small>
+          </div>
+          <div class="d-flex flex-column align-items-md-end">
+            <button id="standaloneUploadBtn" onclick="triggerWorkflowUpload()" class="btn btn-warning fw-bold px-4 py-2 text-nowrap">
+              <i class="bi bi-send-fill me-2"></i>Trigger Upload Workflow
+            </button>
+            <div id="standaloneStatus" class="small mt-1 text-md-end"></div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Main Workspace -->
     <div class="row g-4">
@@ -51,6 +67,21 @@
               </div>
             </div>
 
+            <!-- Schedule Target Dropdown -->
+            <div class="mb-3">
+              <label class="form-label text-white-50"><i class="bi bi-calendar-event me-1"></i>Publish Schedule</label>
+              <select name="schedule_offset_days" id="schedule_offset_days" class="form-select bg-dark text-white border-secondary">
+                <option value="0" selected>Upload Today (Immediate)</option>
+                <option value="1">Tomorrow</option>
+                <option value="2">In 2 Days</option>
+                <option value="3">In 3 Days</option>
+                <option value="4">In 4 Days</option>
+                <option value="5">In 5 Days</option>
+                <option value="6">In 6 Days</option>
+                <option value="7">In 7 Days</option>
+              </select>
+            </div>
+
             <button type="submit" id="submitBtn" class="btn btn-info w-100 fw-bold mt-3 py-2">
               <i class="bi bi-play-circle me-2"></i>Generate Reaction Short
             </button>
@@ -65,24 +96,6 @@
             <i class="bi bi-film fs-1 text-white-50 mb-3"></i>
             <h5 class="text-secondary">Pipeline Output</h5>
             <p class="small text-white-50">Submit a video link to begin downloading, curating comments, and rendering your 9:16 video.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-      <!-- Standalone Drive Upload / n8n Trigger Card -->
-    <div class="row g-4 mb-4">
-      <div class="col-12">
-        <div class="glass-card p-4 d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
-          <div>
-            <h5 class="mb-1 text-light"><i class="bi bi-cloud-arrow-up-fill text-warning me-2"></i>Publish Staged Video</h5>
-            <small class="text-white-50">Uploads whatever is currently staged in your Google Drive Temp folder to Social Media via n8n.</small>
-          </div>
-          <div class="d-flex flex-column align-items-md-end">
-            <button id="standaloneUploadBtn" onclick="triggerWorkflowUpload()" class="btn btn-warning fw-bold px-4 py-2 text-nowrap">
-              <i class="bi bi-send-fill me-2"></i>Trigger Upload Workflow
-            </button>
-            <div id="standaloneStatus" class="small mt-1 text-md-end"></div>
           </div>
         </div>
       </div>
@@ -229,7 +242,7 @@
 
       btn.disabled = true;
       btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Checking Drive...`;
-      statusDiv.innerHTML = `<span class="text-info">Checking Google Drive temp files...</span>`;
+      statusDiv.innerHTML = `<span class="text-info">Searching files in Google Drive...</span>`;
 
       try {
         const res = await fetch('/api/trigger-to-upload-video', { method: 'POST' });
@@ -248,7 +261,7 @@
       } catch (err) {
         btn.disabled = false;
         btn.innerHTML = `<i class="bi bi-send-fill me-2"></i>Trigger Upload Workflow`;
-        statusDiv.innerHTML = `<span class="text-danger">Failed to connect to backend server.</span>`;
+        statusDiv.innerHTML = `<span class="text-danger">Could not reach backend server.</span>`;
       }
     }
   </script>

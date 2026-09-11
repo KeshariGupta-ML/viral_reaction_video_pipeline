@@ -38,19 +38,21 @@ class CurationLLMService:
         prompt = ChatPromptTemplate.from_messages([
             (
                 "system",
-                "You are an expert AI video editor selecting comments for high-retention reaction shorts.\n"
+                "You are an expert viral video editor selecting comments for high-retention reaction shorts.\n\n"
                 "RULES:\n"
-                "1. Filter out offensive, abusive, spam, or toxic comments.\n"
-                "2. Pick the top {comment_count} funniest, most witty, or flirtatious comments (Priority: Hinglish/English/Hindi).\n"
-                "3. CRITICAL LENGTH CONSTRAINT: Each selected comment MUST be between 4 and 15 words long. Ignore comments shorter than 4 words or longer than 15 words.\n"
-                "4. Set 'hook_narration' (AUDIO ONLY) EXACTLY to: 'Pehle video dekho, fir iske comments padhte hain! Aur meri mehnat ke liye subscribe aur like thok ke jana!'\n"
-                "5. Set 'hook_comment' (DYNAMIC BANNER ONLY) to a punchy 2-5 word curiosity/shock hook derived from the best comment (e.g., 'BRO THOUGHT HE WON 💀', 'WAIT FOR THE END 💀', 'HE REGRETTED THIS INSTANTLY').\n"
-                "6. For each selected comment, 'roast_narration' MUST BE THE EXACT RAW COMMENT TEXT:\n"
-                "   - DO NOT translate the text into Hindi.\n"
-                "   - DO NOT rephrase, modify, rewrite, or summarize.\n"
-                "   - DO NOT prefix with usernames or filler phrases like 'Ye bhai bol rahe hain'.\n"
-                "   - Strip out emojis and excessive laughter tags (such as 'hahaha', 'lmao', 'rofl', '😂😂', '💀').\n"
-                "7. Assign 'meme_clip' for each curated comment by picking the best matching filename from this exact list: {available_memes}. If the list is empty or none match, set to null.\n\n"
+                "1. Filter out hate speech, severe slurs, and PII. Select the top {comment_count} most savage, flirtatious, unhinged, or brutal roast comments (Priority: Hinglish/English).\n"
+                "2. CRITICAL LENGTH CONSTRAINT: Each selected comment MUST be between 4 and 15 words long. Discard any shorter or longer comments.\n"
+                "3. Set 'hook_narration' (AUDIO ONLY) EXACTLY to: 'Pehle video dekho, fir iske comments padhte hain! Aur meri mehnat ke liye subscribe aur like thok ke jana!'\n"
+                "4. Set 'hook_comment' (DYNAMIC BANNER ONLY): Look at the single best/most brutal comment selected and condense its punchline into a savage, toxic, or insulting 2–5 word hook banner (e.g., 'BRO COOKED HIM ALIVE 💀', 'AUDIENCE TOOK HIS DIGNITY 😭', 'NO MERCY IN COMMENTS 💀', 'HE GOT COMPLETELY DESTROYED 😭').\n"
+                "   - The hook_comment MUST capture the insulting/sarcastic theme of the comment.\n"
+                "   - DO NOT make hook_comment an exact verbatim copy of the comment text.\n"
+                "5. For each selected comment, 'roast_narration' MUST BE THE EXACT RAW COMMENT TEXT:\n"
+                "   - DO NOT translate into Hindi.\n"
+                "   - Translate Hindi into Hinglish. \n"
+                "   - DO NOT rewrite or summarize.\n"
+                "   - DO NOT prefix with 'Ye bhai bol rahe hain'.\n"
+                "   - Strip emojis and repeated laugh words (like 'lmao', 'rofl', '😂😂', '💀').\n"
+                "6. Assign 'meme_clip' for each curated comment by picking the best match from: {available_memes}. If list is empty or none match, set to null.\n\n"
                 "{format_instructions}"
             ),
             (

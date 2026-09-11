@@ -22,7 +22,8 @@ from app.core.pipeline import pipeline_orchestrator
 from config import settings
 
 app = FastAPI(title="Automated Viral Comment Reaction Generator", version="1.0.0")
-N8N_WEBHOOK_URL = "http://localhost:5678/webhook/trigger-to-upload-video"
+# N8N_WEBHOOK_URL = "http://localhost:5678/webhook/trigger-to-upload-video"
+N8N_WEBHOOK_URL = "http://localhost:5678/webhook-test/trigger-to-upload-video"
 
 # Mount static and output storage paths
 app.mount("/static", StaticFiles(directory=str(settings.STATIC_DIR)), name="static")
@@ -43,10 +44,15 @@ async def start_generation_job(
         background_tasks: BackgroundTasks,
         video_url: str = Form(...),
         voice_style: str = Form("hinglish_energetic"),
-        comment_count: int = Form(3)
+        comment_count: int = Form(3),
+        schedule_offset_days: int = Form(0)  # <-- Added schedule offset
 ):
     """Initiates a background worker job to compile the reaction video pipeline."""
     job_id = str(uuid.uuid4())[:8]
+
+    # Pre-register job and record schedule offset
+    job = pipeline_orchestrator.create_job(job_id=job_id, video_url=video_url)
+    job.schedule_offset_days = schedule_offset_days
 
     background_tasks.add_task(
         pipeline_orchestrator.run_pipeline,
@@ -58,6 +64,7 @@ async def start_generation_job(
     return JSONResponse({
         "status": "queued",
         "job_id": job_id,
+        "schedule_offset_days": schedule_offset_days,
         "message": "Reaction video generation pipeline started in the background."
     })
 
@@ -73,6 +80,7 @@ async def get_job_status(job_id: str):
         "job_id": job.job_id,
         "status": job.status,
         "source_url": job.source_url,
+        "schedule_offset_days": getattr(job, "schedule_offset_days", 0),
         "script": job.script.dict() if job.script else None,
         "rendered_video_url": f"/output/{job.rendered_video_path.name}" if job.rendered_video_path else None,
         "error_message": job.error_message
@@ -85,59 +93,61 @@ async def upload_job_to_drive(job_id: str):
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    # 1. Locate the rendered output MP4 in storage/output
     video_path = Path(job.rendered_video_path) if job.rendered_video_path else (
                 settings.OUTPUT_DIR / f"reaction_{job_id}.mp4")
     if not video_path.exists():
         raise HTTPException(status_code=400, detail=f"Rendered video not found at: {video_path}")
 
-    # 2. Locate the raw video JSON inside storage/videos
-    # Check possible naming conventions in storage/videos/
+    # 1. Locate the cached scraped metadata to grab source title & uploader
+    import hashlib
+    url_hash = hashlib.sha256(job.source_url.strip().encode("utf-8")).hexdigest()[:12]
+    cached_meta_path = settings.VIDEOS_DIR / f"{url_hash}_metadata.json"
+
+    source_meta = {}
+    if cached_meta_path.exists():
+        try:
+            with open(cached_meta_path, "r", encoding="utf-8") as f:
+                cached_data = json.load(f)
+                source_meta = cached_data.get("metadata", {})
+        except Exception as e:
+            logger.warning(f"Could not load scraped metadata: {e}")
+
+    # 2. Build complete JSON matching what n8n expects
     json_path = settings.VIDEOS_DIR / f"{job_id}.json"
-    if not json_path.exists():
-        # Fallback search for any matching JSON file for this job_id in videos folder
-        possible_files = list(settings.VIDEOS_DIR.glob(f"*.json"))
-        if possible_files:
-            json_path = possible_files[0]
-        else:
-            # Create a structured fallback JSON if raw file wasn't persisted
-            json_path = settings.VIDEOS_DIR / f"{job_id}.json"
-            raw_metadata = {
-                "job_id": job.job_id,
-                "source_url": job.source_url,
-                "source_video_path": str(job.source_video_path),
-                "rendered_video_path": str(video_path),
-                "script": job.script.model_dump() if hasattr(job.script, "model_dump") else getattr(job.script, "dict",
-                                                                                                    lambda: job.script)()
-            }
-            with open(json_path, "w", encoding="utf-8") as f:
-                json.dump(raw_metadata, f, ensure_ascii=False, indent=2)
+    raw_metadata = {
+        "job_id": job.job_id,
+        "source_url": job.source_url,
+        "schedule_offset_days": getattr(job, "schedule_offset_days", 0),
+        "metadata": {
+            "title": source_meta.get("title") or "Viral Reaction",
+            "uploader": source_meta.get("uploader") or "Creator",
+            "duration": source_meta.get("duration")
+        },
+        "script": job.script.model_dump() if hasattr(job.script, "model_dump") else getattr(job.script, "dict",
+                                                                                            lambda: job.script)()
+    }
 
-    try:
-        # 3. Upload Output MP4 to Google Drive
-        video_res = await gdrive_service.upload_file(
-            file_path=video_path,
-            mime_type="video/mp4",
-            custom_filename=f"reaction_{job_id}.mp4"
-        )
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(raw_metadata, f, ensure_ascii=False, indent=2)
 
-        # 4. Upload Raw JSON from storage/videos/ to Google Drive
-        json_res = await gdrive_service.upload_file(
-            file_path=json_path,
-            mime_type="application/json",
-            custom_filename=f"raw_metadata_{job_id}.json"
-        )
+    # 3. Upload Output MP4 and JSON to Google Drive
+    video_res = await gdrive_service.upload_file(
+        file_path=video_path,
+        mime_type="video/mp4",
+        custom_filename=f"reaction_{job_id}.mp4"
+    )
 
-        return {
-            "status": "success",
-            "video_drive_link": video_res.get("webViewLink"),
-            "json_drive_link": json_res.get("webViewLink")
-        }
+    json_res = await gdrive_service.upload_file(
+        file_path=json_path,
+        mime_type="application/json",
+        custom_filename=f"raw_metadata_{job_id}.json"
+    )
 
-    except Exception as e:
-        logger.error(f"❌ Failed to upload job {job_id} assets to Drive: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
+    return {
+        "status": "success",
+        "video_drive_link": video_res.get("webViewLink"),
+        "json_drive_link": json_res.get("webViewLink")
+    }
 
 @app.post("/api/trigger-to-upload-video")
 async def trigger_temp_upload_workflow():
@@ -183,6 +193,7 @@ async def trigger_temp_upload_workflow():
     except Exception as e:
         logger.error(f"Error checking GDrive or calling n8n: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to process request: {str(e)}")
+
 
 if __name__ == "__main__":
     import uvicorn

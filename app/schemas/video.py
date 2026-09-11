@@ -17,11 +17,13 @@ class VideoJobRequest(BaseModel):
     video_url: HttpUrl
     voice_style: str = "hinglish_energetic"
     comment_count: int = 3
+    schedule_offset_days: int = 0
 
 class VideoJob(BaseModel):
     job_id: str
     status: JobStatus = JobStatus.QUEUED
     source_url: str
+    schedule_offset_days: int = 0
     source_video_path: Optional[Path] = None
     script: Optional[VideoScript] = None
     rendered_video_path: Optional[Path] = None
