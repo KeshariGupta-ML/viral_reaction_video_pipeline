@@ -121,12 +121,18 @@ class VideoCompositorService:
         out.run(overwrite_output=True, capture_stdout=True, capture_stderr=True)
 
     def _render_video_playback_segment(self, source_video: Path, max_duration: float, output_segment: Path):
-        """Plays source video at 1.0x normal speed with normalized framerate and audio[cite: 1]."""
+        """
+        Plays source video up to max_duration (e.g. 15s) and overlays a circular meme video
+        ('ruko-jara-sabar-karo.mp4') at bottom right starting at t=5.0s, disappearing immediately
+        when the meme clip finishes.
+        """
         total_vid_duration = self.get_media_duration(source_video)
         vid_duration = min(total_vid_duration, max_duration)
+        meme_vid_path = settings.ASSETS_DIR / "static_meme" / "ruko-jara-sabar-karo.mp4"
 
         in_vid = ffmpeg.input(str(source_video), t=vid_duration)
 
+        # 1. Main Background and Foreground Video
         bg = (
             in_vid.video
             .filter('scale', 1080, 1920, force_original_aspect_ratio='increase')
@@ -147,16 +153,63 @@ class VideoCompositorService:
 
         comp = ffmpeg.overlay(bg, fg, x='(W-w)/2', y='(H-h)/2')
 
-        aud = (
+        src_aud = (
             in_vid.audio
             .filter('aformat', sample_rates='44100', channel_layouts='stereo')
             .filter('atrim', duration=vid_duration)
             .filter('asetpts', 'PTS-STARTPTS')
         )
 
+        # 2. Check if meme video exists and playback is longer than 5.5s
+        if meme_vid_path.exists() and vid_duration > 5.5:
+            # Measure exact meme video duration to know when to dismiss the overlay
+            meme_file_dur = self.get_media_duration(meme_vid_path)
+            meme_play_dur = min(meme_file_dur, vid_duration - 5.0)
+            meme_start_t = 5.0
+            meme_end_t = meme_start_t + meme_play_dur
+
+            in_meme = ffmpeg.input(str(meme_vid_path), t=meme_play_dur)
+
+            # Circular mask (r=170)
+            circle_size = 340
+            r = circle_size // 2
+            circle_meme = (
+                in_meme.video
+                .filter('scale', circle_size, circle_size, force_original_aspect_ratio='increase')
+                .filter('crop', circle_size, circle_size)
+                .filter('format', 'yuva420p')
+                .filter('geq',
+                        lum='p(X,Y)',
+                        a=f'if(lte(pow(X-{r},2)+pow(Y-{r},2),pow({r},2)),255,0)')
+                .filter('fps', fps=30)
+                .filter('setpts', 'PTS-STARTPTS+5/TB')
+            )
+
+            # Enable ONLY between 5.0s and the end of the meme clip
+            comp = ffmpeg.overlay(
+                comp,
+                circle_meme,
+                x='W-w-50',
+                y='H-h-240',
+                enable=f'between(t,{meme_start_t:.2f},{meme_end_t:.2f})'
+            )
+
+            # Delay meme audio by 5000ms and mix with primary audio
+            meme_aud = (
+                in_meme.audio
+                .filter('aformat', sample_rates='44100', channel_layouts='stereo')
+                .filter('adelay', '5000|5000')
+                .filter('volume', 1.2)
+                .filter('atrim', duration=vid_duration)
+                .filter('asetpts', 'PTS-STARTPTS')
+            )
+            mixed_aud = ffmpeg.filter([src_aud, meme_aud], 'amix', inputs=2, duration='first', dropout_transition=2)
+        else:
+            mixed_aud = src_aud
+
         out = ffmpeg.output(
             comp,
-            aud,
+            mixed_aud,
             str(output_segment),
             vcodec='libx264',
             acodec='aac',
@@ -166,7 +219,6 @@ class VideoCompositorService:
             t=vid_duration
         )
         out.run(overwrite_output=True, capture_stdout=True, capture_stderr=True)
-
     def _render_meme_clip_segment(self, meme_video_path: Path, output_segment: Path, max_duration: float = 3.5):
         """Normalizes meme clip into standard 1080x1920 30FPS format[cite: 1]."""
         dur = min(self.get_media_duration(meme_video_path), max_duration)
@@ -213,12 +265,12 @@ class VideoCompositorService:
         out.run(overwrite_output=True, capture_stdout=True, capture_stderr=True)
 
     def _render_comment_reaction_segment(
-        self,
-        source_video: Path,
-        duration: float,
-        audio_path: Path,
-        comment_card_img: Path,
-        output_segment: Path
+            self,
+            source_video: Path,
+            duration: float,
+            audio_path: Path,
+            comment_card_img: Path,
+            output_segment: Path
     ):
         """Renders Comment Reaction segment with paused/blurred video & centered comment card[cite: 1]."""
         in_vid = ffmpeg.input(str(source_video), ss=0)
@@ -323,12 +375,12 @@ class VideoCompositorService:
                 segments.append(seg1_path)
 
                 # ----------------------------------------------------
-                # Scene 2: Video Playback (Up to 10s at normal speed)
+                # Scene 2: Video Playback (Up to 15s at normal speed)
                 # ----------------------------------------------------
                 seg2_path = self.temp_dir / f"seg_2_play_{uuid.uuid4().hex[:6]}.mp4"
                 self._render_video_playback_segment(
                     source_video=source_video_path,
-                    max_duration=10.0,
+                    max_duration=15.0,
                     output_segment=seg2_path
                 )
                 segments.append(seg2_path)
@@ -383,7 +435,8 @@ class VideoCompositorService:
 
             ffmpeg.input(str(concat_txt), format='concat', safe=0).output(
                 str(output_path),
-                c='copy'
+                c='copy',
+                map_metadata=-1
             ).run(overwrite_output=True, capture_stdout=True, capture_stderr=True)
 
             # Cleanup temporary intermediate segment files

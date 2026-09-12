@@ -23,7 +23,8 @@ from config import settings
 
 app = FastAPI(title="Automated Viral Comment Reaction Generator", version="1.0.0")
 # N8N_WEBHOOK_URL = "http://localhost:5678/webhook/trigger-to-upload-video"
-N8N_WEBHOOK_URL = "http://localhost:5678/webhook-test/trigger-to-upload-video"
+# N8N_WEBHOOK_URL = "http://localhost:5678/webhook-test/trigger-to-upload-video"
+N8N_WEBHOOK_URL = "http://localhost:5678/webhook/testing_pipeline"
 
 # Mount static and output storage paths
 app.mount("/static", StaticFiles(directory=str(settings.STATIC_DIR)), name="static")

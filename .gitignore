@@ -11,6 +11,7 @@ __pycache__/
 assets/token.json
 assets/credentials.json
 assets/shiva-service-acc.json
+assets/Reaction-video-upload-pipeline.json
 # Environment Variables
 .env
 
