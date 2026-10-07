@@ -36,20 +36,38 @@ class VideoCompositorService:
         except Exception:
             return 4.0
 
+    def extract_candidate_keyframes(self,
+            video_path: Path, output_dir: Path, count: int = 3
+    ) -> List[Path]:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        duration = self.get_media_duration(video_path)
+
+        # Sample timestamps (avoid t=0 which is often black or frozen)
+        timestamps = [duration * factor for factor in [0.40, 0.50, 0.60]][:count]
+        extracted_frames: List[Path] = []
+
+        for idx, ts in enumerate(timestamps):
+            frame_file = output_dir / f"keyframe_{idx}.jpg"
+            (
+                ffmpeg.input(str(video_path), ss=ts)
+                .filter('scale', 1080, 1920, force_original_aspect_ratio='increase')
+                .filter('crop', 1080, 1920)
+                .output(str(frame_file), vframes=1)
+                .run(overwrite_output=True, quiet=True)
+            )
+            extracted_frames.append(frame_file)
+
+        return extracted_frames
+
     def _render_hook_intro_segment(
-        self,
-        source_video: Path,
-        duration: float,
-        audio_path: Path,
-        output_segment: Path,
-        top_banner_img: Optional[Path],
-        spoken_timeline: List[Tuple[Path, float, float]]
+            self,
+            source_video: Path,
+            duration: float,
+            audio_path: Path,
+            output_segment: Path,
+            spoken_timeline: List[Tuple[Path, float, float]]
     ):
-        """
-        Renders Hook Intro Scene:
-        - Top persistent dynamic banner (hook_comment) stays at y=180 for the full duration.
-        - Spoken 3-word chunks (hook_text) cycle sequentially at y=(H-h)/2 + 250.
-        """
+        """Creates Hook Intro Scene with blurred backdrop, centered foreground, and kinetic 3-word pop-ups."""
         in_vid = ffmpeg.input(str(source_video), ss=0)
         in_aud = ffmpeg.input(str(audio_path))
 
@@ -75,23 +93,12 @@ class VideoCompositorService:
 
         comp = ffmpeg.overlay(bg, fg, x='(W-w)/2', y='(H-h)/2')
 
-        # 1. Overlay Top Persistent Themed Banner for the full hook duration
-        if top_banner_img and top_banner_img.exists():
-            top_in = ffmpeg.input(str(top_banner_img), loop=1, t=duration)
-            scaled_top = top_in.video.filter('scale', 980, -1).filter('fps', fps=30).filter('setpts', 'PTS-STARTPTS')
-            comp = ffmpeg.overlay(
-                comp,
-                scaled_top,
-                x='(W-w)/2',
-                y=180,  # Safe eye-level placement above subjects
-                enable=f'between(t,0,{duration:.2f})'
-            )
-
-        # 2. Overlay Sequenced 3-Word Narration Badges in the lower third
+        # Overlay only the sequenced 3-word spoken narration badges
         for img_path, start_t, end_t in spoken_timeline:
             if img_path.exists():
                 txt_in = ffmpeg.input(str(img_path))
-                scaled_txt = txt_in.video.filter('scale', 960, -1).filter('fps', fps=30).filter('setpts', 'PTS-STARTPTS')
+                scaled_txt = txt_in.video.filter('scale', 960, -1).filter('fps', fps=30).filter('setpts',
+                                                                                                'PTS-STARTPTS')
                 comp = ffmpeg.overlay(
                     comp,
                     scaled_txt,
@@ -353,15 +360,9 @@ class VideoCompositorService:
                 hook_duration = self.get_media_duration(hook_audio)
                 seg1_path = self.temp_dir / f"seg_1_hook_{uuid.uuid4().hex[:6]}.mp4"
 
-                hook_comment_val = getattr(script, "hook_comment", None)
-                hook_narration_val = getattr(script, "hook_narration", "Pehle ye video dekho, fir iske comments padhte hain!")
-
-                top_banner_img, spoken_timeline = card_renderer_service.render_bold_hook_text_overlays(
-                    hook_text=hook_narration_val,
-                    hook_comment=hook_comment_val,
-                    total_duration=hook_duration,
-                    theme=banner_theme,
-                    job_seed=source_video_path.name
+                spoken_timeline = card_renderer_service.render_bold_hook_text_overlays(
+                    hook_text=script.hook_narration,
+                    total_duration=hook_duration
                 )
 
                 self._render_hook_intro_segment(
@@ -369,7 +370,6 @@ class VideoCompositorService:
                     duration=hook_duration,
                     audio_path=hook_audio,
                     output_segment=seg1_path,
-                    top_banner_img=top_banner_img,
                     spoken_timeline=spoken_timeline
                 )
                 segments.append(seg1_path)
@@ -380,7 +380,7 @@ class VideoCompositorService:
                 seg2_path = self.temp_dir / f"seg_2_play_{uuid.uuid4().hex[:6]}.mp4"
                 self._render_video_playback_segment(
                     source_video=source_video_path,
-                    max_duration=15.0,
+                    max_duration=25.0,
                     output_segment=seg2_path
                 )
                 segments.append(seg2_path)

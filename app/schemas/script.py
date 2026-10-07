@@ -5,18 +5,14 @@ from app.schemas.comment import CuratedComment
 
 class VideoScript(BaseModel):
     hook_narration: str = Field(
-        default="Pehle video dekho, fir iske comments padhte hain! Aur meri mehnat ke liye subscribe aur like thok ke jana",
-        description="High-energy Hindi hook narration"
-    )
-    hook_comment: str = Field(
-        default="WAIT FOR THE END 💀",
-        description="Punchy 2-6 word short comment/hook to animate on dynamic banners"
+        default="Pehle video dekho, fir iske comments padhte hain! Aur meri mehnat ke liye subscribe aur like thok ke jana!",
+        description="Spoken Hindi/Hinglish TTS intro audio narration",
     )
     reactions: List[CuratedComment] = Field(
         ...,
-        description="List of selected curated comments with roast narrations"
+        description="List of selected curated comments with roast narrations",
     )
     outro_narration: Optional[str] = Field(
         default="Video pasand aayi toh like aur subscribe zaroor karna!",
-        description="Outro closing call to action"
+        description="Outro closing call to action",
     )

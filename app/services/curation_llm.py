@@ -1,12 +1,16 @@
 import os
 import json
+import random
 import re
 from pathlib import Path
+from typing import List, Optional, Any
+
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
 
 from app.schemas.script import VideoScript
+from app.schemas.comment import CuratedComment
 from app.core.logger import logger
 from config import settings
 
@@ -16,12 +20,12 @@ class CurationLLMService:
         self.llm = ChatGoogleGenerativeAI(
             model=settings.GEMINI_MODEL,
             google_api_key=settings.GOOGLE_API_KEY,
-            temperature=0.1  # Low temperature for strict adherence to formatting rules
+            temperature=0.7  # Diverse, realistic comedic humor
         )
         self.parser = PydanticOutputParser(pydantic_object=VideoScript)
 
     def _get_available_memes(self) -> list:
-        if settings.MEMES_DIR.exists():
+        if hasattr(settings, "MEMES_DIR") and settings.MEMES_DIR.exists():
             return [
                 f.name for f in settings.MEMES_DIR.glob("*.*")
                 if f.suffix.lower() in [".mp4", ".mov", ".webm", ".mkv"]
@@ -29,45 +33,103 @@ class CurationLLMService:
             ]
         return []
 
-    def curate_and_generate_script(self, raw_comments: list, comment_count: int = 3) -> VideoScript:
-        logger.info(f"🤖 [LLM Curation] Curating top {comment_count} comments (4-15 words)...")
+    def _sanitize_text(self, text: str) -> str:
+        """Collapses 3+ repeating identical characters/emojis to 1 to prevent model loops."""
+        if not text:
+            return ""
+        return re.sub(r'(.)\1{2,}', r'\1', text).strip()
+
+    def curate_and_generate_script(
+        self,
+        raw_comments: Optional[list] = None,
+        comment_count: int = 3,
+        title: str = "Viral Video",
+        description: str = "",
+        **kwargs: Any
+    ) -> VideoScript:
+        """
+        Primary generation method.
+        Accepts raw_comments (for backward compatibility) and/or title/description.
+        """
+        # If title wasn't passed directly, check kwargs or extract from first raw comment
+        clean_title = self._sanitize_text(title or kwargs.get("video_title", "Viral Video"))
+        clean_desc = self._sanitize_text(description[:300])
+
+        logger.info(f"🤖 [LLM Service] Generating {comment_count} comments & script for: '{clean_title[:35]}...'")
 
         available_memes = self._get_available_memes()
-        comments_payload = [c.dict() for c in raw_comments[:30]]
 
         prompt = ChatPromptTemplate.from_messages([
             (
                 "system",
-                "You are an expert viral video editor selecting comments for high-retention reaction shorts.\n\n"
-                "RULES:\n"
-                "1. Filter out hate speech, severe slurs, and PII. Select the top {comment_count} most savage, flirtatious, unhinged, or brutal roast comments (Priority: Hinglish/English).\n"
-                "2. CRITICAL LENGTH CONSTRAINT: Each selected comment MUST be between 4 and 15 words long. Discard any shorter or longer comments.\n"
-                "3. Set 'hook_narration' (AUDIO ONLY) EXACTLY to: 'Pehle video dekho, fir iske comments padhte hain! Aur meri mehnat ke liye subscribe aur like thok ke jana!'\n"
-                "4. Set 'hook_comment' (DYNAMIC BANNER ONLY): Look at the single best/most brutal comment selected and condense its punchline into a savage, toxic, or insulting 2–5 word hook banner (e.g., 'BRO COOKED HIM ALIVE 💀', 'AUDIENCE TOOK HIS DIGNITY 😭', 'NO MERCY IN COMMENTS 💀', 'HE GOT COMPLETELY DESTROYED 😭').\n"
-                "   - The hook_comment MUST capture the insulting/sarcastic theme of the comment.\n"
-                "   - DO NOT make hook_comment an exact verbatim copy of the comment text.\n"
-                "5. For each selected comment, 'roast_narration' MUST BE THE EXACT RAW COMMENT TEXT:\n"
-                "   - DO NOT translate into Hindi.\n"
-                "   - Translate Hindi into Hinglish. \n"
-                "   - DO NOT rewrite or summarize.\n"
-                "   - DO NOT prefix with 'Ye bhai bol rahe hain'.\n"
-                "   - Strip emojis and repeated laugh words (like 'lmao', 'rofl', '😂😂', '💀').\n"
-                "6. Assign 'meme_clip' for each curated comment by picking the best match from: {available_memes}. If list is empty or none match, set to null.\n\n"
+                "You are an expert comedic writer and video editor creating YouTube Shorts reaction videos.\n\n"
+                "GOAL:\n"
+                "Generate {comment_count} realistic, high-engagement viewer comments reacting directly to the video context, then build the voiceover script.\n\n"
+                "STRICT RULES:\n"
+                "1. INVENT REALISTIC VIEWER COMMENTS:\n"
+                "   - Create believable user handles (e.g. '@roast_master99', '@gamer_kabir', '@toxic_vibes').\n"
+                "   - Write funny, sarcastic, or brutal comments reacting to the video topic.\n"
+                "   - Language Priority: Hinglish (Hindi in Roman script) or conversational English.\n"
+                "   - WORD COUNT: Strictly between 4 and 15 words per comment.\n"
+                "   - Assign realistic like counts formatted as strings (e.g. '14.2K', '3.8K') and replies ('120', '45').\n"
+                "   - NO EMOJI SPAM: Maximum 1 emoji per comment. Never repeat emojis.\n\n"
+                "2. HOOK AUDIO ('hook_narration'):\n"
+                "   - EXACT STRING: 'Pehle video dekho, fir iske comments padhte hain! Aur meri mehnat ke liye subscribe aur like thok ke jana!'\n\n"
+                "3. VOICE NARRATION ('roast_narration'):\n"
+                "   - Exact spoken comment text without emojis or username prefixes.\n\n"
+                "4. MEME CLIP ('meme_clip'):\n"
+                "   - Pick the best match from this list: {available_memes}. If none match, use null.\n\n"
                 "{format_instructions}"
             ),
             (
                 "user",
-                "Here are the scraped comments to evaluate:\n{comments_json}"
+                "Video Title: {title}\n"
+                "Video Description: {description}"
             )
         ])
 
         chain = prompt | self.llm | self.parser
-        return chain.invoke({
-            "comment_count": comment_count,
-            "available_memes": json.dumps(available_memes),
-            "comments_json": json.dumps(comments_payload),
-            "format_instructions": self.parser.get_format_instructions()
-        })
+
+        try:
+            script: VideoScript = chain.invoke({
+                "comment_count": comment_count,
+                "title": clean_title,
+                "description": clean_desc,
+                "available_memes": json.dumps(available_memes),
+                "format_instructions": self.parser.get_format_instructions()
+            })
+            return script
+
+        except Exception as e:
+            logger.warning(f"⚠️ [LLM Fallback] Parsing failed ({e}). Returning validated emergency script.")
+            fallback_reactions = [
+                CuratedComment(
+                    id="gen_1",
+                    author="@sarcastic_bro",
+                    comment_text="Bro forgot to turn on his brain today 💀",
+                    likes="12.5K",
+                    replies="84",
+                    roast_narration="Bro forgot to turn on his brain today",
+                    meme_clip=available_memes[0] if available_memes else None
+                ),
+                CuratedComment(
+                    id="gen_2",
+                    author="@desiroaster",
+                    comment_text="Confidence level 100 but IQ level minus zero 😭",
+                    likes="8.2K",
+                    replies="42",
+                    roast_narration="Confidence level 100 but IQ level minus zero",
+                    meme_clip=None
+                )
+            ][:comment_count]
+
+            return VideoScript(
+                hook_narration="Pehle video dekho, fir iske comments padhte hain! Aur meri mehnat ke liye subscribe aur like thok ke jana!",
+                reactions=fallback_reactions
+            )
+
+    # Alias so both generate_comments_and_script and curate_and_generate_script work
+    generate_comments_and_script = curate_and_generate_script
 
 
 curation_service = CurationLLMService()

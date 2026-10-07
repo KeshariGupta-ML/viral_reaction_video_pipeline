@@ -22,9 +22,9 @@ from app.core.pipeline import pipeline_orchestrator
 from config import settings
 
 app = FastAPI(title="Automated Viral Comment Reaction Generator", version="1.0.0")
-# N8N_WEBHOOK_URL = "http://localhost:5678/webhook/trigger-to-upload-video"
+N8N_WEBHOOK_URL = "http://localhost:5678/webhook/trigger-to-upload-video"
 # N8N_WEBHOOK_URL = "http://localhost:5678/webhook-test/trigger-to-upload-video"
-N8N_WEBHOOK_URL = "http://localhost:5678/webhook/testing_pipeline"
+# N8N_WEBHOOK_URL = "http://localhost:5678/webhook-test/testing_pipeline"
 
 # Mount static and output storage paths
 app.mount("/static", StaticFiles(directory=str(settings.STATIC_DIR)), name="static")
@@ -95,9 +95,12 @@ async def upload_job_to_drive(job_id: str):
         raise HTTPException(status_code=404, detail="Job not found")
 
     video_path = Path(job.rendered_video_path) if job.rendered_video_path else (
-                settings.OUTPUT_DIR / f"reaction_{job_id}.mp4")
+            settings.OUTPUT_DIR / f"reaction_{job_id}.mp4")
     if not video_path.exists():
         raise HTTPException(status_code=400, detail=f"Rendered video not found at: {video_path}")
+
+    # Calculate exact video file size in bytes
+    file_size_bytes = video_path.stat().st_size
 
     # 1. Locate the cached scraped metadata to grab source title & uploader
     import hashlib
@@ -118,11 +121,13 @@ async def upload_job_to_drive(job_id: str):
     raw_metadata = {
         "job_id": job.job_id,
         "source_url": job.source_url,
+        "file_size_bytes": file_size_bytes,
         "schedule_offset_days": getattr(job, "schedule_offset_days", 0),
         "metadata": {
             "title": source_meta.get("title") or "Viral Reaction",
             "uploader": source_meta.get("uploader") or "Creator",
-            "duration": source_meta.get("duration")
+            "duration": source_meta.get("duration"),
+            "file_size_bytes": file_size_bytes
         },
         "script": job.script.model_dump() if hasattr(job.script, "model_dump") else getattr(job.script, "dict",
                                                                                             lambda: job.script)()
@@ -149,6 +154,7 @@ async def upload_job_to_drive(job_id: str):
         "video_drive_link": video_res.get("webViewLink"),
         "json_drive_link": json_res.get("webViewLink")
     }
+
 
 @app.post("/api/trigger-to-upload-video")
 async def trigger_temp_upload_workflow():
