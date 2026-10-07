@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     GEMINI_MODEL: str = os.getenv("GEMINI_MODEL")
     ELEVENLABS_API_KEY: str
     ELEVENLABS_VOICE_ID: str
+    THUMBNAIL:str =os.getenv("THUMBNAIL","Non_AI")
 
     # Server Settings
     APP_HOST: str = "127.0.0.1"

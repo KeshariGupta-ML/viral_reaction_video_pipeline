@@ -12,6 +12,7 @@ from app.services.tts_elevenlab_engine import tts_service
 from app.services.card_renderer import card_renderer_service
 from app.services.video_compositor import video_compositor_service
 from config import settings
+from app.services.thumbnail_generator import thumbnail_service
 
 
 class PipelineOrchestrator:
@@ -57,10 +58,13 @@ class PipelineOrchestrator:
 
             # Step 2: AI Curation & Script Generation (Gemini 2.5 Flash)
             job.status = JobStatus.CURATING
-            logger.info(f"🤖 [Pipeline {job_id}] Step 2/5: Curating top comments with Gemini...")
+            logger.info(f"🤖 [Pipeline {job_id}] Step 2/5: Curating comments with Gemini...")
+
             script = curation_service.curate_and_generate_script(
                 raw_comments=raw_comments,
-                comment_count=comment_count
+                comment_count=comment_count,
+                title=metadata.get("title", "Viral Video"),
+                description=metadata.get("description", "")
             )
             job.script = script
 
@@ -96,8 +100,7 @@ class PipelineOrchestrator:
                     avatar_url=reaction.avatar_url
                 )
                 card_images.append(card_img)
-
-            # Step 4: Video Composition (Segment assembly & dynamic meme cutaways)
+            # Step 4: Video Composition (Segment assembly & concatenation)
             job.status = JobStatus.RENDERING
             logger.info(f"🎬 [Pipeline {job_id}] Step 4/5: Compositing final vertical 9:16 video...")
 
@@ -109,8 +112,18 @@ class PipelineOrchestrator:
                 script=script,
                 output_filename=output_filename
             )
-            job.rendered_video_path = rendered_path
 
+            # Step 4.5: Generate FLUX Thumbnail (Pollinations) & Embed as Default Cover
+            video_title = metadata.get("title", "Viral Shorts Reaction")
+            video_desc = metadata.get("description", "")
+
+            thumbnail_service.generate_and_attach(
+                video_path=rendered_path,
+                title=video_title,
+                description=video_desc
+            )
+
+            job.rendered_video_path = rendered_path
             # Step 5: Completed
             job.status = JobStatus.COMPLETED
             logger.info(f"✨ [Pipeline {job_id}] Step 5/5: Pipeline completed successfully! Output: {rendered_path}")
