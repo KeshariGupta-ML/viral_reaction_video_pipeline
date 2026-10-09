@@ -1,4 +1,5 @@
 import os
+import random
 import uuid
 from pathlib import Path
 from typing import List, Optional, Tuple, Any
@@ -127,11 +128,13 @@ class VideoCompositorService:
         )
         out.run(overwrite_output=True, capture_stdout=True, capture_stderr=True)
 
-    def _render_video_playback_segment(self, source_video: Path, max_duration: float, output_segment: Path):
+    def _render_video_playback_segment(
+            self, source_video: Path, max_duration: float, output_segment: Path
+    ):
         """
         Plays source video up to max_duration (e.g. 15s) and overlays a circular meme video
-        ('ruko-jara-sabar-karo.mp4') at bottom right starting at t=5.0s, disappearing immediately
-        when the meme clip finishes.
+        ('ruko-jara-sabar-karo.mp4') at bottom right starting at a randomized timestamp
+        between 5.0s and 10.0s, disappearing immediately when the meme clip finishes.
         """
         total_vid_duration = self.get_media_duration(source_video)
         vid_duration = min(total_vid_duration, max_duration)
@@ -141,76 +144,96 @@ class VideoCompositorService:
 
         # 1. Main Background and Foreground Video
         bg = (
-            in_vid.video
-            .filter('scale', 1080, 1920, force_original_aspect_ratio='increase')
-            .filter('crop', 1080, 1920)
-            .filter('boxblur', 25, 5)
-            .filter('trim', duration=vid_duration)
-            .filter('fps', fps=30)
-            .filter('setpts', 'PTS-STARTPTS')
+            in_vid.video.filter(
+                "scale", 1080, 1920, force_original_aspect_ratio="increase"
+            )
+            .filter("crop", 1080, 1920)
+            .filter("boxblur", 25, 5)
+            .filter("trim", duration=vid_duration)
+            .filter("fps", fps=30)
+            .filter("setpts", "PTS-STARTPTS")
         )
 
         fg = (
-            in_vid.video
-            .filter('scale', 1080, 1920, force_original_aspect_ratio='decrease')
-            .filter('trim', duration=vid_duration)
-            .filter('fps', fps=30)
-            .filter('setpts', 'PTS-STARTPTS')
+            in_vid.video.filter(
+                "scale", 1080, 1920, force_original_aspect_ratio="decrease"
+            )
+            .filter("trim", duration=vid_duration)
+            .filter("fps", fps=30)
+            .filter("setpts", "PTS-STARTPTS")
         )
 
-        comp = ffmpeg.overlay(bg, fg, x='(W-w)/2', y='(H-h)/2')
+        comp = ffmpeg.overlay(bg, fg, x="(W-w)/2", y="(H-h)/2")
 
         src_aud = (
-            in_vid.audio
-            .filter('aformat', sample_rates='44100', channel_layouts='stereo')
-            .filter('atrim', duration=vid_duration)
-            .filter('asetpts', 'PTS-STARTPTS')
+            in_vid.audio.filter(
+                "aformat", sample_rates="44100", channel_layouts="stereo"
+            )
+            .filter("atrim", duration=vid_duration)
+            .filter("asetpts", "PTS-STARTPTS")
         )
 
-        # 2. Check if meme video exists and playback is longer than 5.5s
-        if meme_vid_path.exists() and vid_duration > 5.5:
-            # Measure exact meme video duration to know when to dismiss the overlay
+        # 2. Check if meme video exists and playback is long enough for at least 5s start
+        if meme_vid_path.exists() and vid_duration > 6.5:
             meme_file_dur = self.get_media_duration(meme_vid_path)
-            meme_play_dur = min(meme_file_dur, vid_duration - 5.0)
-            meme_start_t = 5.0
+
+            # Ensure start time doesn't exceed clip duration, reserving at least 1.5s runtime
+            max_start = max(5.0, min(10.0, vid_duration - 1.5))
+            meme_start_t = round(random.uniform(5.0, max_start), 2)
+
+            meme_play_dur = min(meme_file_dur, vid_duration - meme_start_t)
             meme_end_t = meme_start_t + meme_play_dur
+            delay_ms = int(meme_start_t * 1000)
 
             in_meme = ffmpeg.input(str(meme_vid_path), t=meme_play_dur)
 
-            # Circular mask (r=170)
+            # Circular mask (r=170) aligned dynamically with meme_start_t
             circle_size = 340
             r = circle_size // 2
             circle_meme = (
-                in_meme.video
-                .filter('scale', circle_size, circle_size, force_original_aspect_ratio='increase')
-                .filter('crop', circle_size, circle_size)
-                .filter('format', 'yuva420p')
-                .filter('geq',
-                        lum='p(X,Y)',
-                        a=f'if(lte(pow(X-{r},2)+pow(Y-{r},2),pow({r},2)),255,0)')
-                .filter('fps', fps=30)
-                .filter('setpts', 'PTS-STARTPTS+5/TB')
+                in_meme.video.filter(
+                    "scale",
+                    circle_size,
+                    circle_size,
+                    force_original_aspect_ratio="increase",
+                )
+                .filter("crop", circle_size, circle_size)
+                .filter("format", "yuva420p")
+                .filter(
+                    "geq",
+                    lum="p(X,Y)",
+                    a=f"if(lte(pow(X-{r},2)+pow(Y-{r},2),pow({r},2)),255,0)",
+                )
+                .filter("fps", fps=30)
+                .filter("setpts", f"PTS-STARTPTS+{meme_start_t}/TB")
             )
 
-            # Enable ONLY between 5.0s and the end of the meme clip
+            # Enable overlay strictly during the randomized window
             comp = ffmpeg.overlay(
                 comp,
                 circle_meme,
-                x='W-w-50',
-                y='H-h-240',
-                enable=f'between(t,{meme_start_t:.2f},{meme_end_t:.2f})'
+                x="W-w-50",
+                y="H-h-240",
+                enable=f"between(t,{meme_start_t:.2f},{meme_end_t:.2f})",
             )
 
-            # Delay meme audio by 5000ms and mix with primary audio
+            # Delay meme audio dynamically to match video start time
             meme_aud = (
-                in_meme.audio
-                .filter('aformat', sample_rates='44100', channel_layouts='stereo')
-                .filter('adelay', '5000|5000')
-                .filter('volume', 1.2)
-                .filter('atrim', duration=vid_duration)
-                .filter('asetpts', 'PTS-STARTPTS')
+                in_meme.audio.filter(
+                    "aformat", sample_rates="44100", channel_layouts="stereo"
+                )
+                .filter("adelay", f"{delay_ms}|{delay_ms}")
+                .filter("volume", 1.2)
+                .filter("atrim", duration=vid_duration)
+                .filter("asetpts", "PTS-STARTPTS")
             )
-            mixed_aud = ffmpeg.filter([src_aud, meme_aud], 'amix', inputs=2, duration='first', dropout_transition=2)
+            mixed_aud = ffmpeg.filter(
+                [src_aud, meme_aud],
+                "amix",
+                inputs=2,
+                duration="first",
+                dropout_transition=2,
+            )
         else:
             mixed_aud = src_aud
 
@@ -218,12 +241,12 @@ class VideoCompositorService:
             comp,
             mixed_aud,
             str(output_segment),
-            vcodec='libx264',
-            acodec='aac',
-            audio_bitrate='192k',
-            pix_fmt='yuv420p',
+            vcodec="libx264",
+            acodec="aac",
+            audio_bitrate="192k",
+            pix_fmt="yuv420p",
             r=30,
-            t=vid_duration
+            t=vid_duration,
         )
         out.run(overwrite_output=True, capture_stdout=True, capture_stderr=True)
     def _render_meme_clip_segment(self, meme_video_path: Path, output_segment: Path, max_duration: float = 3.5):
