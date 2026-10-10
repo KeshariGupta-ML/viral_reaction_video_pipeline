@@ -44,7 +44,7 @@ class VideoCompositorService:
         duration = self.get_media_duration(video_path)
 
         # Sample timestamps (avoid t=0 which is often black or frozen)
-        timestamps = [duration * factor for factor in [0.40, 0.50, 0.60]][:count]
+        timestamps = [duration * factor for factor in [0.40, 0.60, 0.80]][:count]
         extracted_frames: List[Path] = []
 
         for idx, ts in enumerate(timestamps):

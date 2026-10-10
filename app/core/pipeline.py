@@ -116,11 +116,13 @@ class PipelineOrchestrator:
             # Step 4.5: Generate FLUX Thumbnail (Pollinations) & Embed as Default Cover
             video_title = metadata.get("title", "Viral Shorts Reaction")
             video_desc = metadata.get("description", "")
+            hook_to_draw = getattr(script, "hook_text", None) or "WAIT FOR THE END 💀"
 
             thumbnail_service.generate_and_attach(
                 video_path=rendered_path,
                 title=video_title,
-                description=video_desc
+                description=video_desc,
+                hook_text=hook_to_draw
             )
 
             job.rendered_video_path = rendered_path

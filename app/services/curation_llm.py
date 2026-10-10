@@ -29,7 +29,7 @@ class CurationLLMService:
             return [
                 f.name for f in settings.MEMES_DIR.glob("*.*")
                 if f.suffix.lower() in [".mp4", ".mov", ".webm", ".mkv"]
-                and "chaliye" not in f.stem.lower()
+                   and "chaliye" not in f.stem.lower()
             ]
         return []
 
@@ -66,12 +66,12 @@ class CurationLLMService:
         return json.dumps(clean_pool, ensure_ascii=False, indent=2)
 
     def curate_and_generate_script(
-        self,
-        raw_comments: Optional[list] = None,
-        comment_count: int = 3,
-        title: str = "Viral Video",
-        description: str = "",
-        **kwargs: Any
+            self,
+            raw_comments: Optional[list] = None,
+            comment_count: int = 3,
+            title: str = "Viral Video",
+            description: str = "",
+            **kwargs: Any
     ) -> VideoScript:
         """
         Primary generation method.
@@ -83,7 +83,6 @@ class CurationLLMService:
         available_memes = self._get_available_memes()
 
         logger.info(f"🤖 [LLM Service] Curating/generating {comment_count} reactions for: '{clean_title[:35]}...'")
-
 
         prompt = ChatPromptTemplate.from_messages([
             (
@@ -104,7 +103,10 @@ class CurationLLMService:
                 "   * 'Apki saree aur blouse ki fitting jordar h' -> 'Designer ko 21 topon ki salami milni chahiye 🔥'\n"
                 "   * 'Sona Chandi bahut mahange hue aur bade ho gaye' -> 'Gold rate se bhi tez madam ka glow badh raha hai 📈'\n\n"
                 "AUDIO & SCRIPT RULES:\n"
-                "- 'hook_narration': EXACT STRING: 'Pehle video dekho, fir iske comments padhte hain! Aur meri mehnat ke liye subscribe aur like thok ke jana!'\n"
+                "1. 'hook_text': An attention-grabbing, ultra-punchy 3 to 5 word curiosity headline for the thumbnail & intro.\n"
+                "   - SELECT directly from the best raw comment and tweak it slightly to make it viral/funny.\n"
+                "   - SCRIPT REQUIREMENT: Keep it strictly in HINDI (written in Devanagari script, e.g. 'भाई, क्या बवाल डांस है!' ya 'ये क्या देख लिया 💀').\n"
+                "   - Word limit: Strictly 3 to 5 words. Do not make it long.\n" "- 'hook_narration': EXACT STRING: 'Pehle video dekho, fir iske comments padhte hain! Aur meri mehnat ke liye subscribe aur like thok ke jana!'\n"
                 "- 'voice_narration': Cleaned spoken version of 'tweaked_display_text' for natural TTS delivery (reads the comment directly without meta-commentary; excludes emojis, hashtags, and symbols; formatted in conversational Hinglish).\n"
                 "- 'meme_clip': Pick the best matching reaction clip from: {available_memes}. If none fit, output null.\n\n"
                 "{format_instructions}",
@@ -117,7 +119,6 @@ class CurationLLMService:
                 "{raw_comments}",
             ),
         ])
-
 
         chain = prompt | self.llm | self.parser
 
